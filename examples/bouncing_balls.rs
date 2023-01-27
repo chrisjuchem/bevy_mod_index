@@ -3,6 +3,7 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::{Material2d, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::utils::HashMap;
+use bevy_mod_index::prelude::*;
 use rand::rngs::ThreadRng;
 use rand::{random, seq::IteratorRandom, thread_rng, Rng};
 use std::f32::consts::PI;
@@ -16,8 +17,17 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Size(f32);
 
-// struct RegionIndex;
-#[derive(Debug, PartialEq, Eq)]
+struct RegionIndex;
+impl IndexInfo for RegionIndex {
+    type Component = Transform;
+    type Value = Region;
+
+    fn value(t: &Transform) -> Region {
+        get_region(&t.translation.xy())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 enum Region {
     TopLeft,
     TopCenter,
@@ -30,7 +40,7 @@ enum Region {
     BottomRight,
 }
 
-fn get_region(v: Vec2) -> Region {
+fn get_region(v: &Vec2) -> Region {
     match (v.x / MAX_WIDTH, v.y / MAX_HEIGHT) {
         (x, y) if x < -0.33 && y < -0.33 => Region::BottomLeft,
         (x, y) if x < -0.33 && y > 0.33 => Region::TopLeft,
@@ -126,24 +136,24 @@ fn bounce(mut balls: Query<(&Transform, &mut Velocity, &Size)>) {
 }
 
 fn update_colors(
-    index: Query<(Entity, &Transform)>,
+    mut index: Index<RegionIndex>,
     // --
     materials: Res<Assets<ColorMaterial>>,
     click: Res<Input<MouseButton>>,
     windows: Res<Windows>,
     mut commands: Commands,
 ) {
+    index.refresh();
+
     if click.just_pressed(MouseButton::Left) {
         if let Some(mut pos) = windows.get_primary().unwrap().cursor_position() {
             pos.x -= MAX_WIDTH;
             pos.y -= MAX_HEIGHT;
-            let cursor_region = get_region(pos);
+            let cursor_region = get_region(&pos);
 
             let mat = random_asset(&materials, &mut thread_rng());
-            for (e, t) in &index {
-                if cursor_region == get_region(t.translation.xy()) {
-                    commands.entity(e).insert(mat.clone());
-                }
+            for e in &index.lookup(&cursor_region) {
+                commands.entity(*e).insert(mat.clone());
             }
         }
     }
@@ -156,5 +166,6 @@ fn main() {
         .add_system(move_balls)
         .add_system(bounce)
         .add_system(update_colors)
+        .insert_resource(IndexStorage::<RegionIndex>::default())
         .run();
 }
