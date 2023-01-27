@@ -1,7 +1,7 @@
 use crate::unique_multimap::UniqueMultiMap;
-use bevy::ecs::system::SystemParam;
+use bevy::ecs::system::{SystemChangeTick, SystemParam};
 use bevy::prelude::*;
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::HashSet;
 use std::hash::Hash;
 
 pub trait IndexInfo {
@@ -14,11 +14,13 @@ pub trait IndexInfo {
 #[derive(Resource)]
 pub struct IndexStorage<I: IndexInfo> {
     map: UniqueMultiMap<I::Value, Entity>,
+    last_refresh_tick: u32,
 }
 impl<I: IndexInfo> Default for IndexStorage<I> {
     fn default() -> Self {
         IndexStorage {
             map: Default::default(),
+            last_refresh_tick: 0,
         }
     }
 }
@@ -27,25 +29,28 @@ impl<I: IndexInfo> Default for IndexStorage<I> {
 pub struct Index<'w, 's, T: IndexInfo + 'static> {
     storage: ResMut<'w, IndexStorage<T>>,
     // TODO: Figure out if the static lifetime is right here
-    adds: Query<'w, 's, (Entity, &'static T::Component), Added<T::Component>>,
-    //Todo: strictly changes and not adds
-    changes: Query<'w, 's, (Entity, &'static T::Component), Changed<T::Component>>,
+    changes: Query<'w, 's, (Entity, &'static T::Component, ChangeTrackers<T::Component>)>,
+    ticks: SystemChangeTick,
 }
 
 impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
     pub fn lookup(&mut self, val: &T::Value) -> HashSet<Entity> {
-        //todo: if we dont refresh every frame, we lose data????
         self.refresh();
         self.storage.map.get(val)
     }
 
     pub fn refresh(&mut self) {
-        for (e, c) in &self.adds {
-            self.storage.map.insert(&T::value(c), &e);
+        if self.storage.last_refresh_tick >= self.ticks.change_tick() {
+            return; // Already updated in this system.
         }
 
-        for (e, c) in &self.changes {
-            self.storage.map.insert(&T::value(c), &e);
+        for (entity, component, change_tracker) in &self.changes {
+            if change_tracker
+                .ticks()
+                .is_changed(self.storage.last_refresh_tick, self.ticks.change_tick())
+            {}
+            self.storage.map.insert(&T::value(component), &entity);
         }
+        self.storage.last_refresh_tick = self.ticks.change_tick();
     }
 }

@@ -141,14 +141,11 @@ fn bounce(mut balls: Query<(&Transform, &mut Velocity, &Size)>) {
 
 fn update_colors(
     mut index: Index<RegionIndex>,
-    // --
     materials: Res<Assets<ColorMaterial>>,
     click: Res<Input<MouseButton>>,
     windows: Query<&Window>,
     mut commands: Commands,
 ) {
-    index.refresh();
-
     if click.just_pressed(MouseButton::Left) {
         if let Some(mut pos) = windows.single().cursor_position() {
             pos.x -= MAX_WIDTH;
