@@ -6,10 +6,16 @@ edition = "2021"
 [profile.dev.package."*"]
 opt-level = 3
 
-[dependencies]
-bevy = { version = "0.9.1", default_features = false }
+[dependencies.bevy]
+default_features = false
+git = "https://github.com/chrisjuchem/bevy-fork"
+branch = "bevy_mod_index"
 
 # Dependencies for examples
 [dev-dependencies]
-bevy = { version = "0.9.1", features = ["dynamic"] }
 rand = "0.8.5"
+
+[dev-dependencies.bevy]
+git = "https://github.com/chrisjuchem/bevy-fork"
+branch = "bevy_mod_index"
+features = ["dynamic_linking"]

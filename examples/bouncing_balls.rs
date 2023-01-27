@@ -102,14 +102,18 @@ fn setup(
     }
 
     let mut rng = thread_rng();
-    for _ in 0..N_BALLS {
+    for z in 0..N_BALLS {
         let size = rng.gen_range(size_range.clone());
 
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: mesh_map.get(&size).unwrap().clone().into(),
                 material: random_asset(&materials, &mut rng).into(),
-                transform: Default::default(),
+                transform: Transform::from_xyz(
+                    (rng.gen::<f32>() - 0.5) * MAX_WIDTH,
+                    (rng.gen::<f32>() - 0.5) * MAX_HEIGHT,
+                    z as f32,
+                ),
                 ..default()
             },
             Velocity(Vec2::from_angle(rng.gen::<f32>() * 2. * PI) * (rng.gen::<f32>() * 3. + 0.5)),
@@ -140,13 +144,13 @@ fn update_colors(
     // --
     materials: Res<Assets<ColorMaterial>>,
     click: Res<Input<MouseButton>>,
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mut commands: Commands,
 ) {
     index.refresh();
 
     if click.just_pressed(MouseButton::Left) {
-        if let Some(mut pos) = windows.get_primary().unwrap().cursor_position() {
+        if let Some(mut pos) = windows.single().cursor_position() {
             pos.x -= MAX_WIDTH;
             pos.y -= MAX_HEIGHT;
             let cursor_region = get_region(&pos);
