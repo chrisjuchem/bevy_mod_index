@@ -17,6 +17,14 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Size(f32);
 
+#[derive(Resource, Default)]
+struct Colors(Vec<Handle<ColorMaterial>>);
+impl Colors {
+    fn random(&self, rng: &mut ThreadRng) -> Handle<ColorMaterial> {
+        self.0.iter().choose(rng).unwrap().clone()
+    }
+}
+
 struct RegionIndex;
 impl IndexInfo for RegionIndex {
     type Component = Transform;
@@ -54,19 +62,11 @@ fn get_region(v: &Vec2) -> Region {
     }
 }
 
-fn random_asset<T>(assets: &Assets<T>, rng: &mut ThreadRng) -> Handle<T>
-where
-    T: Asset,
-{
-    let mut handle = Handle::weak(assets.ids().choose(rng).unwrap());
-    handle.make_strong(assets);
-    handle
-}
-
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut colors: ResMut<Colors>,
 ) {
     commands.spawn(Camera2dBundle::default());
 
@@ -92,7 +92,7 @@ fn setup(
         Color::YELLOW_GREEN,
         Color::ORANGE,
     ] {
-        materials.add(ColorMaterial::from(color));
+        colors.0.push(materials.add(ColorMaterial::from(color)));
     }
 
     let size_range = 2..8;
@@ -108,7 +108,7 @@ fn setup(
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: mesh_map.get(&size).unwrap().clone().into(),
-                material: random_asset(&materials, &mut rng).into(),
+                material: colors.random(&mut rng),
                 transform: Transform::from_xyz(
                     (rng.gen::<f32>() - 0.5) * MAX_WIDTH,
                     (rng.gen::<f32>() - 0.5) * MAX_HEIGHT,
@@ -141,7 +141,7 @@ fn bounce(mut balls: Query<(&Transform, &mut Velocity, &Size)>) {
 
 fn update_colors(
     mut index: Index<RegionIndex>,
-    materials: Res<Assets<ColorMaterial>>,
+    colors: Res<Colors>,
     click: Res<Input<MouseButton>>,
     windows: Query<&Window>,
     mut commands: Commands,
@@ -152,7 +152,7 @@ fn update_colors(
             pos.y -= MAX_HEIGHT;
             let cursor_region = get_region(&pos);
 
-            let mat = random_asset(&materials, &mut thread_rng());
+            let mat = colors.random(&mut thread_rng());
             for e in &index.lookup(&cursor_region) {
                 commands.entity(*e).insert(mat.clone());
             }
@@ -163,6 +163,7 @@ fn update_colors(
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(Colors::default())
         .add_startup_system(setup)
         .add_system(move_balls)
         .add_system(bounce)
