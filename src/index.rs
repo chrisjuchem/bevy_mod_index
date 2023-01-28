@@ -73,6 +73,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
     type State = IndexFetchState<'static, 'static, T>;
     type Item<'_w, '_s> = Index<'_w, '_s, T>;
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        world.init_resource::<IndexStorage<T>>();
         IndexFetchState {
             storage_state: <ResMut<'w, IndexStorage<T>> as SystemParam>::init_state(
                 world,

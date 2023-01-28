@@ -167,6 +167,5 @@ fn main() {
         .add_system(move_balls)
         .add_system(bounce)
         .add_system(update_colors)
-        .insert_resource(IndexStorage::<RegionIndex>::default())
         .run();
 }
