@@ -1,5 +1,7 @@
 use crate::unique_multimap::UniqueMultiMap;
 use bevy::ecs::archetype::Archetype;
+use bevy::ecs::change_detection::Ref;
+use bevy::ecs::component::Tick;
 use bevy::ecs::system::{ReadOnlySystemParam, SystemMeta, SystemParam};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
@@ -26,20 +28,11 @@ impl<I: IndexInfo> Default for IndexStorage<I> {
     }
 }
 
-type ChangedComponetsQuery<'w, 's, T> = Query<
-    'w,
-    's,
-    (
-        Entity,
-        // TODO: Figure out if the static lifetime is right here
-        &'static <T as IndexInfo>::Component,
-        ChangeTrackers<<T as IndexInfo>::Component>,
-    ),
->;
+type ComponetsQuery<'w, 's, T> = Query<'w, 's, (Entity, Ref<'static, <T as IndexInfo>::Component>)>;
 
 pub struct Index<'w, 's, T: IndexInfo + 'static> {
     storage: ResMut<'w, IndexStorage<T>>,
-    changes: ChangedComponetsQuery<'w, 's, T>,
+    components: ComponetsQuery<'w, 's, T>,
     current_tick: u32,
 }
 
@@ -54,16 +47,15 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
             return; // Already updated in this system.
         }
 
-        for (entity, component, change_tracker) in &self.changes {
-            if change_tracker.ticks().is_changed(
-                // Subtract 1 so that changes from the system where the index was updated are seen.
-                // The `changed` implementation assumes we don't care about those changes since
-                // "this" system is the one that made the change, but for indexing, we do care.
-                self.storage.last_refresh_tick.wrapping_sub(1),
-                self.current_tick,
-            ) {
+        for (entity, component) in &self.components {
+            // Subtract 1 so that changes from the system where the index was updated are seen.
+            // The `changed` implementation assumes we don't care about those changes since
+            // "this" system is the one that made the change, but for indexing, we do care.
+            if Tick::new(self.storage.last_refresh_tick.wrapping_sub(1))
+                .is_older_than(component.last_changed(), self.current_tick)
+            {
                 println!("update val for {:?}", entity);
-                self.storage.map.insert(&T::value(component), &entity);
+                self.storage.map.insert(&T::value(&component), &entity);
             }
         }
         self.storage.last_refresh_tick = self.current_tick;
@@ -72,7 +64,7 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
 
 pub struct IndexFetchState<'w, 's, T: IndexInfo + 'static> {
     storage_state: <ResMut<'w, IndexStorage<T>> as SystemParam>::State,
-    changed_components_state: <ChangedComponetsQuery<'w, 's, T> as SystemParam>::State,
+    changed_components_state: <ComponetsQuery<'w, 's, T> as SystemParam>::State,
 }
 unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
     type State = IndexFetchState<'static, 'static, T>;
@@ -84,7 +76,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
                 world,
                 system_meta,
             ),
-            changed_components_state: <ChangedComponetsQuery<'w, 's, T> as SystemParam>::init_state(
+            changed_components_state: <ComponetsQuery<'w, 's, T> as SystemParam>::init_state(
                 world,
                 system_meta,
             ),
@@ -96,7 +88,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
             archetype,
             system_meta,
         );
-        <ChangedComponetsQuery<'w, 's, T> as SystemParam>::new_archetype(
+        <ComponetsQuery<'w, 's, T> as SystemParam>::new_archetype(
             &mut state.changed_components_state,
             archetype,
             system_meta,
@@ -108,7 +100,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
             system_meta,
             world,
         );
-        <ChangedComponetsQuery<'w, 's, T> as SystemParam>::apply(
+        <ComponetsQuery<'w, 's, T> as SystemParam>::apply(
             &mut state.changed_components_state,
             system_meta,
             world,
@@ -127,7 +119,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
                 world,
                 change_tick,
             ),
-            changes: <ChangedComponetsQuery<'w, 's, T> as SystemParam>::get_param(
+            components: <ComponetsQuery<'w, 's, T> as SystemParam>::get_param(
                 &mut state.changed_components_state,
                 system_meta,
                 world,
@@ -140,7 +132,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
 unsafe impl<'w, 's, T: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, T>
 where
     ResMut<'w, IndexStorage<T>>: ReadOnlySystemParam,
-    ChangedComponetsQuery<'w, 's, T>: ReadOnlySystemParam,
+    ComponetsQuery<'w, 's, T>: ReadOnlySystemParam,
 {
 }
 

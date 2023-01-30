@@ -10,7 +10,7 @@ opt-level = 3
 [dependencies.bevy]
 default_features = false
 git = "https://github.com/chrisjuchem/bevy-fork"
-branch = "bevy_mod_index"
+branch = "main"
 
 # Dependencies for examples
 [dev-dependencies]
@@ -18,5 +18,5 @@ rand = "0.8.5"
 
 [dev-dependencies.bevy]
 git = "https://github.com/chrisjuchem/bevy-fork"
-branch = "bevy_mod_index"
+branch = "main"
 features = ["dynamic_linking"]
