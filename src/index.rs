@@ -38,15 +38,14 @@ pub struct Index<'w, 's, T: IndexInfo + 'static> {
 
 impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
     pub fn lookup(&mut self, val: &T::Value) -> HashSet<Entity> {
-        self.refresh();
+        if self.storage.last_refresh_tick != self.current_tick {
+            self.refresh();
+        }
+
         self.storage.map.get(val)
     }
 
     pub fn refresh(&mut self) {
-        if self.storage.last_refresh_tick >= self.current_tick {
-            return; // Already updated in this system.
-        }
-
         for (entity, component) in &self.components {
             // Subtract 1 so that changes from the system where the index was updated are seen.
             // The `changed` implementation assumes we don't care about those changes since
@@ -54,7 +53,6 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
             if Tick::new(self.storage.last_refresh_tick.wrapping_sub(1))
                 .is_older_than(component.last_changed(), self.current_tick)
             {
-                println!("update val for {:?}", entity);
                 self.storage.map.insert(&T::value(&component), &entity);
             }
         }
@@ -171,7 +169,6 @@ mod test {
                 number,
                 amount,
             );
-            println!("DONE CHEKING")
         }
     }
 
@@ -233,6 +230,34 @@ mod test {
             .add_system(adder_some(10, 10))
             .add_system_to_stage(CoreStage::PostUpdate, checker(10, 0))
             .add_system_to_stage(CoreStage::PostUpdate, checker(20, 3))
+            .run();
+    }
+
+    #[test]
+    fn test_same_system_detection() {
+        let manual_refresh_system =
+            |mut nums_and_index: ParamSet<(Query<&mut Number>, Index<Number>)>| {
+                let mut idx = nums_and_index.p1();
+                let twenties = idx.lookup(&Number(20));
+                assert_eq!(twenties.len(), 1);
+
+                for entity in twenties.into_iter() {
+                    nums_and_index.p0().get_mut(entity).unwrap().0 += 5;
+                }
+                idx = nums_and_index.p1(); // reborrow here so earlier p0 borrow succeeds
+
+                // Hasn't refreshed yet
+                assert_eq!(idx.lookup(&Number(20)).len(), 1);
+                assert_eq!(idx.lookup(&Number(25)).len(), 0);
+
+                idx.refresh();
+                assert_eq!(idx.lookup(&Number(20)).len(), 0);
+                assert_eq!(idx.lookup(&Number(25)).len(), 1);
+            };
+
+        App::new()
+            .add_startup_system(add_some_numbers)
+            .add_system(manual_refresh_system)
             .run();
     }
 }
