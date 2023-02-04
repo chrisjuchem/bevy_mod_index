@@ -33,7 +33,7 @@ type ComponetsQuery<'w, 's, T> = Query<'w, 's, (Entity, Ref<'static, <T as Index
 pub struct Index<'w, 's, T: IndexInfo + 'static> {
     storage: ResMut<'w, IndexStorage<T>>,
     components: ComponetsQuery<'w, 's, T>,
-    removals: RemovedComponents<'w, T::Component>,
+    removals: RemovedComponents<'w, 's, T::Component>,
     current_tick: u32,
 }
 
@@ -47,7 +47,7 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
     }
 
     pub fn refresh(&mut self) {
-        for entity in &self.removals {
+        for entity in self.removals.iter() {
             self.storage.map.remove(&entity);
         }
         for (entity, component) in &self.components {
@@ -67,7 +67,7 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
 pub struct IndexFetchState<'w, 's, T: IndexInfo + 'static> {
     storage_state: <ResMut<'w, IndexStorage<T>> as SystemParam>::State,
     changed_components_state: <ComponetsQuery<'w, 's, T> as SystemParam>::State,
-    removed_components_state: <RemovedComponents<'w, T::Component> as SystemParam>::State,
+    removed_components_state: <RemovedComponents<'w, 's, T::Component> as SystemParam>::State,
 }
 unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
     type State = IndexFetchState<'static, 'static, T>;
@@ -84,7 +84,10 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
                 system_meta,
             ),
             removed_components_state:
-                <RemovedComponents<'w, T::Component> as SystemParam>::init_state(world, system_meta),
+                <RemovedComponents<'w, 's, T::Component> as SystemParam>::init_state(
+                    world,
+                    system_meta,
+                ),
         }
     }
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
@@ -98,7 +101,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
             archetype,
             system_meta,
         );
-        <RemovedComponents<'w, T::Component> as SystemParam>::new_archetype(
+        <RemovedComponents<'w, 's, T::Component> as SystemParam>::new_archetype(
             &mut state.removed_components_state,
             archetype,
             system_meta,
@@ -115,7 +118,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
             system_meta,
             world,
         );
-        <RemovedComponents<'w, T::Component> as SystemParam>::apply(
+        <RemovedComponents<'w, 's, T::Component> as SystemParam>::apply(
             &mut state.removed_components_state,
             system_meta,
             world,
@@ -140,7 +143,7 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
                 world,
                 change_tick,
             ),
-            removals: <RemovedComponents<'w, T::Component> as SystemParam>::get_param(
+            removals: <RemovedComponents<'w, 's, T::Component> as SystemParam>::get_param(
                 &mut state.removed_components_state,
                 system_meta,
                 world,
