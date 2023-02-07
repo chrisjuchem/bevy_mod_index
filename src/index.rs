@@ -33,6 +33,7 @@ type ComponetsQuery<'w, 's, T> = Query<'w, 's, (Entity, Ref<'static, <T as Index
 pub struct Index<'w, 's, T: IndexInfo + 'static> {
     storage: ResMut<'w, IndexStorage<T>>,
     components: ComponetsQuery<'w, 's, T>,
+    removals: RemovedComponents<'w, 's, T::Component>,
     current_tick: u32,
 }
 
@@ -46,6 +47,9 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
     }
 
     pub fn refresh(&mut self) {
+        for entity in self.removals.iter() {
+            self.storage.map.remove(&entity);
+        }
         for (entity, component) in &self.components {
             // Subtract 1 so that changes from the system where the index was updated are seen.
             // The `changed` implementation assumes we don't care about those changes since
@@ -63,6 +67,7 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
 pub struct IndexFetchState<'w, 's, T: IndexInfo + 'static> {
     storage_state: <ResMut<'w, IndexStorage<T>> as SystemParam>::State,
     changed_components_state: <ComponetsQuery<'w, 's, T> as SystemParam>::State,
+    removed_components_state: <RemovedComponents<'w, 's, T::Component> as SystemParam>::State,
 }
 unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
     type State = IndexFetchState<'static, 'static, T>;
@@ -78,6 +83,11 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
                 world,
                 system_meta,
             ),
+            removed_components_state:
+                <RemovedComponents<'w, 's, T::Component> as SystemParam>::init_state(
+                    world,
+                    system_meta,
+                ),
         }
     }
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
@@ -91,6 +101,11 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
             archetype,
             system_meta,
         );
+        <RemovedComponents<'w, 's, T::Component> as SystemParam>::new_archetype(
+            &mut state.removed_components_state,
+            archetype,
+            system_meta,
+        );
     }
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         <ResMut<'w, IndexStorage<T>> as SystemParam>::apply(
@@ -100,6 +115,11 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
         );
         <ComponetsQuery<'w, 's, T> as SystemParam>::apply(
             &mut state.changed_components_state,
+            system_meta,
+            world,
+        );
+        <RemovedComponents<'w, 's, T::Component> as SystemParam>::apply(
+            &mut state.removed_components_state,
             system_meta,
             world,
         );
@@ -119,6 +139,12 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
             ),
             components: <ComponetsQuery<'w, 's, T> as SystemParam>::get_param(
                 &mut state.changed_components_state,
+                system_meta,
+                world,
+                change_tick,
+            ),
+            removals: <RemovedComponents<'w, 's, T::Component> as SystemParam>::get_param(
+                &mut state.removed_components_state,
                 system_meta,
                 world,
                 change_tick,
@@ -258,6 +284,56 @@ mod test {
         App::new()
             .add_startup_system(add_some_numbers)
             .add_system(manual_refresh_system)
+            .run();
+    }
+
+    fn remover(n: usize) -> impl Fn(Index<Number>, Commands) {
+        move |mut idx: Index<Number>, mut commands: Commands| {
+            for entity in idx.lookup(&Number(n)).into_iter() {
+                commands.get_entity(entity).unwrap().remove::<Number>();
+            }
+        }
+    }
+
+    fn despawner(n: usize) -> impl Fn(Index<Number>, Commands) {
+        move |mut idx: Index<Number>, mut commands: Commands| {
+            for entity in idx.lookup(&Number(n)).into_iter() {
+                commands.get_entity(entity).unwrap().despawn();
+            }
+        }
+    }
+
+    fn next_frame(world: &mut World) {
+        world.clear_trackers();
+    }
+
+    #[test]
+    fn test_removal_detection() {
+        App::new()
+            .add_startup_system(add_some_numbers)
+            .add_system_to_stage(CoreStage::PreUpdate, checker(20, 1))
+            .add_system_to_stage(CoreStage::Update, remover(20))
+            .add_system_to_stage(CoreStage::PostUpdate, next_frame)
+            .add_system_to_stage(CoreStage::PostUpdate, remover(30).after(next_frame))
+            // Detect component removed this earlier this frame
+            .add_system_to_stage(CoreStage::Last, checker(30, 0))
+            // Detect component removed after we ran last stage
+            .add_system_to_stage(CoreStage::Last, checker(20, 0))
+            .run();
+    }
+
+    #[test]
+    fn test_despawn_detection() {
+        App::new()
+            .add_startup_system(add_some_numbers)
+            .add_system_to_stage(CoreStage::PreUpdate, checker(20, 1))
+            .add_system_to_stage(CoreStage::Update, despawner(20))
+            .add_system_to_stage(CoreStage::PostUpdate, next_frame)
+            .add_system_to_stage(CoreStage::PostUpdate, despawner(30).after(next_frame))
+            // Detect component removed this earlier this frame
+            .add_system_to_stage(CoreStage::Last, checker(30, 0))
+            // Detect component removed after we ran last stage
+            .add_system_to_stage(CoreStage::Last, checker(20, 0))
             .run();
     }
 }

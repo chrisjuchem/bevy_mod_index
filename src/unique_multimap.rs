@@ -43,20 +43,40 @@ where
             }
 
             // remove old value; its key must exist according to rev_map
-            let old_set = self.map.get_mut(&old_k).unwrap();
-            match old_set.len() {
-                1 => {
-                    self.map.remove(old_k);
-                }
-                _ => {
-                    old_set.remove(v);
-                }
-            }
+            self.purge_from_forward(old_k, v, "insert");
         }
         // insert new value
         self.map.get_mut_or_insert_default(new_k).insert(v.clone());
 
         maybe_old_k
+    }
+
+    /// Returns value's old key
+    pub fn remove(&mut self, v: &V) -> Option<K> {
+        let maybe_old_k = self.rev_map.remove(v);
+
+        if let Some(old_k) = &maybe_old_k {
+            self.purge_from_forward(old_k, v, "remove");
+        }
+
+        return maybe_old_k;
+    }
+
+    // Removes v from k's set, removing the set completely if it would be empty
+    // Panics if k is not in the forward map.
+    fn purge_from_forward(&mut self, k: &K, v: &V, fn_name: &str) {
+        let old_set = self.map.get_mut(&k).expect(&format!(
+            "{}: Cached key from rev_map was not present in forward map!",
+            fn_name,
+        ));
+        match old_set.len() {
+            1 => {
+                self.map.remove(k);
+            }
+            _ => {
+                old_set.remove(v);
+            }
+        }
     }
 }
 
