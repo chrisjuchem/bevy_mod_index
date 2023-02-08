@@ -160,6 +160,7 @@ where
 {
 }
 
+#[cfg(test)]
 mod test {
     use crate::prelude::*;
     use bevy::prelude::*;
@@ -234,16 +235,16 @@ mod test {
     fn test_changing_values() {
         App::new()
             .add_startup_system(add_some_numbers)
-            .add_system_to_stage(CoreStage::PreUpdate, checker(10, 2))
-            .add_system_to_stage(CoreStage::PreUpdate, checker(20, 1))
-            .add_system_to_stage(CoreStage::PreUpdate, checker(30, 1))
+            .add_system(checker(10, 2).in_base_set(CoreSet::PreUpdate))
+            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
+            .add_system(checker(30, 1).in_base_set(CoreSet::PreUpdate))
             .add_system(adder_all(5))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(10, 0))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(20, 0))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(30, 0))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(15, 2))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(25, 1))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(35, 1))
+            .add_system(checker(10, 0).in_base_set(CoreSet::PostUpdate))
+            .add_system(checker(20, 0).in_base_set(CoreSet::PostUpdate))
+            .add_system(checker(30, 0).in_base_set(CoreSet::PostUpdate))
+            .add_system(checker(15, 2).in_base_set(CoreSet::PostUpdate))
+            .add_system(checker(25, 1).in_base_set(CoreSet::PostUpdate))
+            .add_system(checker(35, 1).in_base_set(CoreSet::PostUpdate))
             .run();
     }
 
@@ -251,11 +252,11 @@ mod test {
     fn test_changing_with_index() {
         App::new()
             .add_startup_system(add_some_numbers)
-            .add_system_to_stage(CoreStage::PreUpdate, checker(10, 2))
-            .add_system_to_stage(CoreStage::PreUpdate, checker(20, 1))
+            .add_system(checker(10, 2).in_base_set(CoreSet::PreUpdate))
+            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
             .add_system(adder_some(10, 10))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(10, 0))
-            .add_system_to_stage(CoreStage::PostUpdate, checker(20, 3))
+            .add_system(checker(10, 0).in_base_set(CoreSet::PostUpdate))
+            .add_system(checker(20, 3).in_base_set(CoreSet::PostUpdate))
             .run();
     }
 
@@ -311,14 +312,18 @@ mod test {
     fn test_removal_detection() {
         App::new()
             .add_startup_system(add_some_numbers)
-            .add_system_to_stage(CoreStage::PreUpdate, checker(20, 1))
-            .add_system_to_stage(CoreStage::Update, remover(20))
-            .add_system_to_stage(CoreStage::PostUpdate, next_frame)
-            .add_system_to_stage(CoreStage::PostUpdate, remover(30).after(next_frame))
+            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
+            .add_system(remover(20).in_base_set(CoreSet::Update))
+            .add_system(next_frame.in_base_set(CoreSet::PostUpdate))
+            .add_system(
+                remover(30)
+                    .after(next_frame)
+                    .in_base_set(CoreSet::PostUpdate),
+            )
             // Detect component removed this earlier this frame
-            .add_system_to_stage(CoreStage::Last, checker(30, 0))
+            .add_system(checker(30, 0).in_base_set(CoreSet::Last))
             // Detect component removed after we ran last stage
-            .add_system_to_stage(CoreStage::Last, checker(20, 0))
+            .add_system(checker(20, 0).in_base_set(CoreSet::Last))
             .run();
     }
 
@@ -326,14 +331,18 @@ mod test {
     fn test_despawn_detection() {
         App::new()
             .add_startup_system(add_some_numbers)
-            .add_system_to_stage(CoreStage::PreUpdate, checker(20, 1))
-            .add_system_to_stage(CoreStage::Update, despawner(20))
-            .add_system_to_stage(CoreStage::PostUpdate, next_frame)
-            .add_system_to_stage(CoreStage::PostUpdate, despawner(30).after(next_frame))
+            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
+            .add_system(despawner(20).in_base_set(CoreSet::Update))
+            .add_system(next_frame.in_base_set(CoreSet::PostUpdate))
+            .add_system(
+                despawner(30)
+                    .after(next_frame)
+                    .in_base_set(CoreSet::PostUpdate),
+            )
             // Detect component removed this earlier this frame
-            .add_system_to_stage(CoreStage::Last, checker(30, 0))
+            .add_system(checker(30, 0).in_base_set(CoreSet::Last))
             // Detect component removed after we ran last stage
-            .add_system_to_stage(CoreStage::Last, checker(20, 0))
+            .add_system(checker(20, 0).in_base_set(CoreSet::Last))
             .run();
     }
 }

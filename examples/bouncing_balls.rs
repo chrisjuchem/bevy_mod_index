@@ -1,11 +1,10 @@
-use bevy::asset::Asset;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use bevy::sprite::{Material2d, MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::sprite::MaterialMesh2dBundle;
 use bevy::utils::HashMap;
 use bevy_mod_index::prelude::*;
 use rand::rngs::ThreadRng;
-use rand::{random, seq::IteratorRandom, thread_rng, Rng};
+use rand::{seq::IteratorRandom, thread_rng, Rng};
 use std::f32::consts::PI;
 
 const N_BALLS: usize = 1000;

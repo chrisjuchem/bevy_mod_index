@@ -10,7 +10,7 @@ opt-level = 3
 [dependencies.bevy]
 default_features = false
 git = "https://github.com/bevyengine/bevy"
-rev = "9adffb7521f8d33f634046f773e4ca4c6721ccf4" #pre-stageless
+branch = "main"
 
 # Dependencies for examples
 [dev-dependencies]
@@ -18,5 +18,5 @@ rand = "0.8.5"
 
 [dev-dependencies.bevy]
 git = "https://github.com/bevyengine/bevy"
-rev = "9adffb7521f8d33f634046f773e4ca4c6721ccf4" #pre-stageless
+branch = "main"
 features = ["dynamic_linking"]
