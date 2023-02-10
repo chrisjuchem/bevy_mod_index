@@ -103,14 +103,11 @@ index is not used, it will not update, even if its system runs, which can be use
 only need up-to-date data in certain circumstances (e.g. when the mouse is clicked) to save
 re-computing values for rapidly changing data.
 
-This implementation currently requires a [small patch to Bevy][patch] that allows us to 
-check if the entities changed since some arbitrary time instead of just since the last time
-the system ran.
 
 ## Compatability
-| Bevy Version                 | `bevy_mod_index` Version |
-|------------------------------|--------------------------|
-| main ([custom patch][patch]) | 0.1.0                    |
+| Bevy Version | `bevy_mod_index` Version |
+|--------------|--------------------------|
+| main         | 0.1.0                    |
 
 ## Troubleshooting
 - `Query<(bevy_ecs::entity::Entity, &bevy_mod_index::index::test::Number, bevy_ecs::query::fetch::ChangeTrackers<bevy_mod_index::index::test::Number>), ()> in system bevy_mod_index::index::test::adder_some::{{closure}} accesses component(s) bevy_mod_index::index::test::Number in a way that conflicts with a previous system parameter. Consider using ``Without<T>`` to create disjoint Queries or merging conflicting Queries into a ``ParamSet``.`
@@ -136,5 +133,4 @@ the system ran.
   - Replacing Components with arbitrary queries may cover both of these cases.
 
 
-[patch]: https://github.com/bevyengine/bevy/compare/main...chrisjuchem:bevy-fork:bevy_mod_index
 [ParamSet]: https://docs.rs/bevy/latest/bevy/ecs/system/struct.ParamSet.html
