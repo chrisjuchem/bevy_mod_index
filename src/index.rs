@@ -51,12 +51,13 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
             self.storage.map.remove(&entity);
         }
         for (entity, component) in &self.components {
-            // Subtract 1 so that changes from the system where the index was updated are seen.
-            // The `changed` implementation assumes we don't care about those changes since
-            // "this" system is the one that made the change, but for indexing, we do care.
-            if Tick::new(self.storage.last_refresh_tick.wrapping_sub(1))
-                .is_older_than(component.last_changed(), self.current_tick)
-            {
+            if Tick::new(component.last_changed()).is_newer_than(
+                // Subtract 1 so that changes from the system where the index was updated are seen.
+                // The `changed` implementation assumes we don't care about those changes since
+                // "this" system is the one that made the change, but for indexing, we do care.
+                self.storage.last_refresh_tick.wrapping_sub(1),
+                self.current_tick,
+            ) {
                 self.storage.map.insert(&T::value(&component), &entity);
             }
         }
