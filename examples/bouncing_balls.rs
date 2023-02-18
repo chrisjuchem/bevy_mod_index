@@ -28,6 +28,7 @@ struct RegionIndex;
 impl IndexInfo for RegionIndex {
     type Component = Transform;
     type Value = Region;
+    type Storage = HashmapStorage<Self>;
 
     fn value(t: &Transform) -> Region {
         get_region(&t.translation.xy())

@@ -1,126 +1,79 @@
-use crate::unique_multimap::UniqueMultiMap;
+use crate::storage::IndexStorage;
 use bevy::ecs::archetype::Archetype;
-use bevy::ecs::change_detection::Ref;
-use bevy::ecs::component::Tick;
-use bevy::ecs::system::{ReadOnlySystemParam, SystemMeta, SystemParam};
+use bevy::ecs::system::{ReadOnlySystemParam, StaticSystemParam, SystemMeta, SystemParam};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use std::hash::Hash;
 
-pub trait IndexInfo {
+pub trait IndexInfo: Sized + 'static {
     type Component: Component;
     type Value: Send + Sync + Hash + Eq + Clone;
+    type Storage: IndexStorage<Self>;
 
     fn value(c: &Self::Component) -> Self::Value;
 }
 
-#[derive(Resource)]
-pub struct IndexStorage<I: IndexInfo> {
-    map: UniqueMultiMap<I::Value, Entity>,
-    last_refresh_tick: u32,
-}
-impl<I: IndexInfo> Default for IndexStorage<I> {
-    fn default() -> Self {
-        IndexStorage {
-            map: Default::default(),
-            last_refresh_tick: 0,
-        }
-    }
-}
-
-type ComponetsQuery<'w, 's, T> = Query<'w, 's, (Entity, Ref<'static, <T as IndexInfo>::Component>)>;
-
 pub struct Index<'w, 's, T: IndexInfo + 'static> {
-    storage: ResMut<'w, IndexStorage<T>>,
-    components: ComponetsQuery<'w, 's, T>,
-    removals: RemovedComponents<'w, 's, T::Component>,
-    current_tick: u32,
+    storage: ResMut<'w, T::Storage>,
+    refresh_data:
+        StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>>,
 }
 
 impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
     pub fn lookup(&mut self, val: &T::Value) -> HashSet<Entity> {
-        if self.storage.last_refresh_tick != self.current_tick {
-            self.refresh();
-        }
-
-        self.storage.map.get(val)
+        self.storage.get(val, &mut self.refresh_data)
     }
 
     pub fn refresh(&mut self) {
-        for entity in self.removals.iter() {
-            self.storage.map.remove(&entity);
-        }
-        for (entity, component) in &self.components {
-            if Tick::new(component.last_changed()).is_newer_than(
-                // Subtract 1 so that changes from the system where the index was updated are seen.
-                // The `changed` implementation assumes we don't care about those changes since
-                // "this" system is the one that made the change, but for indexing, we do care.
-                self.storage.last_refresh_tick.wrapping_sub(1),
-                self.current_tick,
-            ) {
-                self.storage.map.insert(&T::value(&component), &entity);
-            }
-        }
-        self.storage.last_refresh_tick = self.current_tick;
+        self.storage.refresh(&mut self.refresh_data)
     }
 }
 
 pub struct IndexFetchState<'w, 's, T: IndexInfo + 'static> {
-    storage_state: <ResMut<'w, IndexStorage<T>> as SystemParam>::State,
-    changed_components_state: <ComponetsQuery<'w, 's, T> as SystemParam>::State,
-    removed_components_state: <RemovedComponents<'w, 's, T::Component> as SystemParam>::State,
+    storage_state: <ResMut<'w, T::Storage> as SystemParam>::State,
+    refresh_data_state: <StaticSystemParam<
+        'w,
+        's,
+        <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>,
+    > as SystemParam>::State,
 }
-unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
+unsafe impl<'w, 's, T> SystemParam for Index<'w, 's, T>
+where
+    T: IndexInfo + 'static,
+{
     type State = IndexFetchState<'static, 'static, T>;
     type Item<'_w, '_s> = Index<'_w, '_s, T>;
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        world.init_resource::<IndexStorage<T>>();
+        world.init_resource::<T::Storage>();
         IndexFetchState {
-            storage_state: <ResMut<'w, IndexStorage<T>> as SystemParam>::init_state(
-                world,
-                system_meta,
-            ),
-            changed_components_state: <ComponetsQuery<'w, 's, T> as SystemParam>::init_state(
-                world,
-                system_meta,
-            ),
-            removed_components_state:
-                <RemovedComponents<'w, 's, T::Component> as SystemParam>::init_state(
-                    world,
-                    system_meta,
-                ),
+            storage_state: <ResMut<'w, T::Storage> as SystemParam>::init_state(world, system_meta),
+            refresh_data_state: <StaticSystemParam<
+                'w,
+                's,
+                <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>,
+            > as SystemParam>::init_state(world, system_meta),
         }
     }
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        <ResMut<'w, IndexStorage<T>> as SystemParam>::new_archetype(
+        <ResMut<'w, T::Storage> as SystemParam>::new_archetype(
             &mut state.storage_state,
             archetype,
             system_meta,
         );
-        <ComponetsQuery<'w, 's, T> as SystemParam>::new_archetype(
-            &mut state.changed_components_state,
-            archetype,
-            system_meta,
-        );
-        <RemovedComponents<'w, 's, T::Component> as SystemParam>::new_archetype(
-            &mut state.removed_components_state,
+        <StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>> as SystemParam>::new_archetype(
+            &mut state.refresh_data_state,
             archetype,
             system_meta,
         );
     }
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        <ResMut<'w, IndexStorage<T>> as SystemParam>::apply(
+        <ResMut<'w, T::Storage> as SystemParam>::apply(
             &mut state.storage_state,
             system_meta,
             world,
         );
-        <ComponetsQuery<'w, 's, T> as SystemParam>::apply(
-            &mut state.changed_components_state,
-            system_meta,
-            world,
-        );
-        <RemovedComponents<'w, 's, T::Component> as SystemParam>::apply(
-            &mut state.removed_components_state,
+        <StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>> as SystemParam>::apply(
+            &mut state.refresh_data_state,
             system_meta,
             world,
         );
@@ -132,32 +85,30 @@ unsafe impl<'w, 's, T: IndexInfo + 'static> SystemParam for Index<'w, 's, T> {
         change_tick: u32,
     ) -> Self::Item<'w2, 's2> {
         Index {
-            storage: <ResMut<'w, IndexStorage<T>>>::get_param(
+            storage: <ResMut<'w, T::Storage>>::get_param(
                 &mut state.storage_state,
                 system_meta,
                 world,
                 change_tick,
             ),
-            components: <ComponetsQuery<'w, 's, T> as SystemParam>::get_param(
-                &mut state.changed_components_state,
+            refresh_data: <StaticSystemParam<
+                'w,
+                's,
+                <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>,
+            > as SystemParam>::get_param(
+                &mut state.refresh_data_state,
                 system_meta,
                 world,
                 change_tick,
             ),
-            removals: <RemovedComponents<'w, 's, T::Component> as SystemParam>::get_param(
-                &mut state.removed_components_state,
-                system_meta,
-                world,
-                change_tick,
-            ),
-            current_tick: change_tick,
         }
     }
 }
 unsafe impl<'w, 's, T: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, T>
 where
-    ResMut<'w, IndexStorage<T>>: ReadOnlySystemParam,
-    ComponetsQuery<'w, 's, T>: ReadOnlySystemParam,
+    ResMut<'w, T::Storage>: ReadOnlySystemParam,
+    StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>>:
+        ReadOnlySystemParam,
 {
 }
 
@@ -173,6 +124,7 @@ mod test {
     impl IndexInfo for Number {
         type Component = Self;
         type Value = Self;
+        type Storage = HashmapStorage<Self>;
 
         fn value(c: &Self::Component) -> Self::Value {
             c.clone()
