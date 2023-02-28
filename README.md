@@ -1,7 +1,7 @@
 # bevy_mod_index
 
 A Rust crate that allows efficient querying for components by their values in
-the game engine [Bevy](https://bevyengine.org/).
+the game engine [Bevy].
 
 ## Use Cases
 It is quite common to want to write code in a system that only operates on 
@@ -44,7 +44,7 @@ Indexes add a non-zero amount of overhead, though, so introducing them can
 make your systems slower. Make sure to profile your systems before and after
 introducing indexes if you care about performance.
 
-## Usage
+## Getting Started
 First, import the prelude. 
 ```rust
 use bevy_mod_index::prelude::*;
@@ -56,14 +56,18 @@ one, you can use a simple unit struct for each index beyond the first. You can
 also use unit structs to give more descriptive names, even if you only need one
 index.
 
-You must specify the type of component being indexed, the type of value that 
-you want to ba able to look up components by, and a function for calculating
-that value for a given component.
+You must specify:
+- the type of component to be indexed,
+- the type of value that you want to be able to use for lookups,
+- a function for calculating that value for a component, and
+- how to store the relationship between an entity and the value calculated from 
+  its appropriate component.
 ```rust
 struct NearOrigin {}
 impl IndexInfo for NearOrigin {
   type Component = Transform;
   type Value = bool;
+  type Storage = HashmapStorage<Self>;
 
   fn value(t: &Transform) -> bool {
     t.translation.length() < 5.0
@@ -81,7 +85,7 @@ fn count_players_and_enemies_near_spawn(
 ) {
   let (mut player_count, mut enemy_count) = (0, 0);
   
-  let entities_near_spawn: HashSet<Entity> = index.get(true);
+  let entities_near_spawn: HashSet<Entity> = index.lookup(true);
   for entity in entities_near_spawn.into_iter() {
     if let Ok(()) = players.get(entity) {
       player_count += 1;
@@ -95,19 +99,31 @@ fn count_players_and_enemies_near_spawn(
 }
 ```
 
-## Implementation
-This implementation uses a custom `SystemParam` that updates the index whenever it is used.
+## Implementations
+`HashmapStorage` uses a custom `SystemParam` that updates the index whenever it is used.
 The update is done by using a query to loop over all components, and only reading the actual
 data/re-computing the index value when a component is changed since the last update. If the
 index is not used, it will not update, even if its system runs, which can be useful if you
 only need up-to-date data in certain circumstances (e.g. when the mouse is clicked) to save
 re-computing values for rapidly changing data.
 
+`NoStorage`, as the name implies, does not store any index data. Instead, it loops over all
+data each time it is queried, computing the `value` function for each component, exactly like
+the first `move_living_players` example above. This option allows you to use the index API
+without incurring as much overhead as `HashmapStorage` (though still more than directly looping
+over all components yourself)
 
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
 |--------------|--------------------------|
-| main         | 0.1.0                    |
+| 0.10         | 0.1.0                    |
+
+## API Stability
+Consider the API to be extremely unstable as I experiment with what names and patterns feel
+most natural and expressive, and also work on supporting new features.
+
+If you have suggestions for improvements to the API, I'd love to hear them. File an issue,
+or even better, reach out in the `bevy_mod_index` `#crate-help` thread on Bevy's [discord].
 
 ## Troubleshooting
 - `Query<(bevy_ecs::entity::Entity, &bevy_mod_index::index::test::Number, bevy_ecs::query::fetch::ChangeTrackers<bevy_mod_index::index::test::Number>), ()> in system bevy_mod_index::index::test::adder_some::{{closure}} accesses component(s) bevy_mod_index::index::test::Number in a way that conflicts with a previous system parameter. Consider using ``Without<T>`` to create disjoint Queries or merging conflicting Queries into a ``ParamSet``.`
@@ -116,7 +132,9 @@ re-computing values for rapidly changing data.
     you can [combine them into a `ParamSet`][ParamSet] 
 
 ## Future work
-- Cleanup removed components and despawned entities.
+- Docs
+- Return an iterator of matching `Entity`s instead of a `HashSet`.
+- Cleanup removed components and despawned entities without needing to run every frame.
 - Option to update the index when components change instead of when the index is used.
   - Naively, requires engine support for custom `DerefMut` hooks, but this would likely
     add overhead even when indexes aren't used. Other solutions may be possible.
@@ -131,6 +149,8 @@ re-computing values for rapidly changing data.
 - Indexes over more than one `Component`.
 - Indexes for subsets of a `Component`
   - Replacing Components with arbitrary queries may cover both of these cases.
+- Derive for simple cases of IndexInfo where the component itself is used as the value.
 
-
+[Bevy]: https://bevyengine.org/
+[discord]: https://discord.gg/bevy
 [ParamSet]: https://docs.rs/bevy/latest/bevy/ecs/system/struct.ParamSet.html
