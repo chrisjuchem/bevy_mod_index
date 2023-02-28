@@ -4,6 +4,7 @@ use bevy::ecs::component::Tick;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
+use std::marker::PhantomData;
 
 pub trait IndexStorage<I: IndexInfo>: Resource + Default {
     type RefreshData<'w, 's>: SystemParam;
@@ -15,6 +16,8 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
     ) -> HashSet<Entity>;
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>);
 }
+
+// ==================================================================
 
 #[derive(Resource)]
 pub struct HashmapStorage<I: IndexInfo> {
@@ -73,4 +76,34 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
     components: ComponentsQuery<'w, 's, I>,
     removals: RemovedComponents<'w, 's, I::Component>,
     ticks: SystemChangeTick,
+}
+
+//======================================================================
+
+#[derive(Resource)]
+pub struct NoStorage<I: IndexInfo> {
+    phantom: PhantomData<fn() -> I>,
+}
+impl<I: IndexInfo> Default for NoStorage<I> {
+    fn default() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
+    type RefreshData<'w, 's> = Query<'w, 's, (Entity, &'static I::Component)>;
+
+    fn get<'w, 's>(
+        &mut self,
+        val: &I::Value,
+        data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
+    ) -> HashSet<Entity> {
+        data.iter()
+            .filter_map(|(e, c)| if I::value(c) == *val { Some(e) } else { None })
+            .collect()
+    }
+
+    fn refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
 }
