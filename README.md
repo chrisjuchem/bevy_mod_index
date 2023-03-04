@@ -129,7 +129,13 @@ or even better, reach out in the `bevy_mod_index` `#crate-help` thread on Bevy's
 - `Query<(bevy_ecs::entity::Entity, &bevy_mod_index::index::test::Number, bevy_ecs::query::fetch::ChangeTrackers<bevy_mod_index::index::test::Number>), ()> in system bevy_mod_index::index::test::adder_some::{{closure}} accesses component(s) bevy_mod_index::index::test::Number in a way that conflicts with a previous system parameter. Consider using ``Without<T>`` to create disjoint Queries or merging conflicting Queries into a ``ParamSet``.`
   - Indexes use a read-only query of their components to update the index before it is used.
     If you have a query that mutably access these components in the same system as an `Index`,
-    you can [combine them into a `ParamSet`][ParamSet] 
+    you can [combine them into a `ParamSet`][ParamSet].
+- `lookup` returned entities which no longer exist/no longer have the relevant component.
+  - Currently, detection of removed entities and components relies on `RemovedComponents`,
+    which only has a 2-frame buffer. If no systems that use your index run within a frame
+    of a component or entity being removed, it will be missed. This means that run conditions
+    should generally be avoided, but including the `Index` in the condition may alleviate the
+    issue (though I have not tested this).
 
 ## Future work
 - Docs
@@ -142,10 +148,10 @@ or even better, reach out in the `bevy_mod_index` `#crate-help` thread on Bevy's
       change detection by specifying `&mut T` or `Mut<T>` as the reference type, and we could
       add a third option for `IndexedMut<T>` that would automatically look up all indexes for
       the component in some resource and add the entity to a list to be re-indexed.
+      - See https://github.com/bevyengine/bevy/pull/7499 for a draft implementation.
 - More storage options besides `HashMap`.
   - Sorted container to allow for querying "nearby" values.
     - 1D data should be simple enough, but would also like to support kd-trees for positions.
-  - No storage, using the naive loop approach, but with the nicer index API.
 - Indexes over more than one `Component`.
 - Indexes for subsets of a `Component`
   - Replacing Components with arbitrary queries may cover both of these cases.
