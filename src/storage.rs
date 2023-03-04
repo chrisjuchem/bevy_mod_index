@@ -27,8 +27,8 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
     type RefreshData<'w, 's>: SystemParam;
 
     /// Get all of the entities with relevant components that evaluate to the given value
-    /// using [`T::value`][`IndexInfo::value`].
-    fn get<'w, 's>(
+    /// using [`I::value`][`IndexInfo::value`].
+    fn lookup<'w, 's>(
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
@@ -66,7 +66,7 @@ impl<I: IndexInfo> Default for HashmapStorage<I> {
 impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     type RefreshData<'w, 's> = HashmapStorageRefreshData<'w, 's, I>;
 
-    fn get<'w, 's>(
+    fn lookup<'w, 's>(
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
@@ -134,7 +134,7 @@ impl<I: IndexInfo> Default for NoStorage<I> {
 impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
     type RefreshData<'w, 's> = Query<'w, 's, (Entity, &'static I::Component)>;
 
-    fn get<'w, 's>(
+    fn lookup<'w, 's>(
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,

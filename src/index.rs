@@ -26,18 +26,18 @@ pub trait IndexInfo: Sized + 'static {
 }
 
 /// A [`SystemParam`] that allows you to lookup [`Component`]s that match a certain value.
-pub struct Index<'w, 's, T: IndexInfo + 'static> {
-    storage: ResMut<'w, T::Storage>,
+pub struct Index<'w, 's, I: IndexInfo + 'static> {
+    storage: ResMut<'w, I::Storage>,
     refresh_data:
-        StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>>,
+        StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>>,
 }
 
 // todo impl deref instead? need to move storage?
-impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
+impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// Get all of the entities with relevant components that evaluate to the given value
-    /// using [`T::value`][`IndexInfo::value`].
-    pub fn lookup(&mut self, val: &T::Value) -> HashSet<Entity> {
-        self.storage.get(val, &mut self.refresh_data)
+    /// using [`I::value`][`IndexInfo::value`].
+    pub fn lookup(&mut self, val: &I::Value) -> HashSet<Entity> {
+        self.storage.lookup(val, &mut self.refresh_data)
     }
 
     /// Refresh the underlying [`IndexStorage`] for this index.
@@ -49,50 +49,50 @@ impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
 }
 
 #[doc(hidden)]
-pub struct IndexFetchState<'w, 's, T: IndexInfo + 'static> {
-    storage_state: <ResMut<'w, T::Storage> as SystemParam>::State,
+pub struct IndexFetchState<'w, 's, I: IndexInfo + 'static> {
+    storage_state: <ResMut<'w, I::Storage> as SystemParam>::State,
     refresh_data_state: <StaticSystemParam<
         'w,
         's,
-        <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>,
+        <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
     > as SystemParam>::State,
 }
-unsafe impl<'w, 's, T> SystemParam for Index<'w, 's, T>
+unsafe impl<'w, 's, I> SystemParam for Index<'w, 's, I>
 where
-    T: IndexInfo + 'static,
+    I: IndexInfo + 'static,
 {
-    type State = IndexFetchState<'static, 'static, T>;
-    type Item<'_w, '_s> = Index<'_w, '_s, T>;
+    type State = IndexFetchState<'static, 'static, I>;
+    type Item<'_w, '_s> = Index<'_w, '_s, I>;
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        world.init_resource::<T::Storage>();
+        world.init_resource::<I::Storage>();
         IndexFetchState {
-            storage_state: <ResMut<'w, T::Storage> as SystemParam>::init_state(world, system_meta),
+            storage_state: <ResMut<'w, I::Storage> as SystemParam>::init_state(world, system_meta),
             refresh_data_state: <StaticSystemParam<
                 'w,
                 's,
-                <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>,
+                <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
             > as SystemParam>::init_state(world, system_meta),
         }
     }
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        <ResMut<'w, T::Storage> as SystemParam>::new_archetype(
+        <ResMut<'w, I::Storage> as SystemParam>::new_archetype(
             &mut state.storage_state,
             archetype,
             system_meta,
         );
-        <StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>> as SystemParam>::new_archetype(
+        <StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>> as SystemParam>::new_archetype(
             &mut state.refresh_data_state,
             archetype,
             system_meta,
         );
     }
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        <ResMut<'w, T::Storage> as SystemParam>::apply(
+        <ResMut<'w, I::Storage> as SystemParam>::apply(
             &mut state.storage_state,
             system_meta,
             world,
         );
-        <StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>> as SystemParam>::apply(
+        <StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>> as SystemParam>::apply(
             &mut state.refresh_data_state,
             system_meta,
             world,
@@ -105,7 +105,7 @@ where
         change_tick: u32,
     ) -> Self::Item<'w2, 's2> {
         Index {
-            storage: <ResMut<'w, T::Storage>>::get_param(
+            storage: <ResMut<'w, I::Storage>>::get_param(
                 &mut state.storage_state,
                 system_meta,
                 world,
@@ -114,7 +114,7 @@ where
             refresh_data: <StaticSystemParam<
                 'w,
                 's,
-                <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>,
+                <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
             > as SystemParam>::get_param(
                 &mut state.refresh_data_state,
                 system_meta,
@@ -124,10 +124,10 @@ where
         }
     }
 }
-unsafe impl<'w, 's, T: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, T>
+unsafe impl<'w, 's, I: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, I>
 where
-    ResMut<'w, T::Storage>: ReadOnlySystemParam,
-    StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>>:
+    ResMut<'w, I::Storage>: ReadOnlySystemParam,
+    StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>>:
         ReadOnlySystemParam,
 {
 }
