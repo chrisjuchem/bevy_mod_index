@@ -128,8 +128,25 @@ over all components yourself)
 Consider the API to be extremely unstable as I experiment with what names and patterns feel
 most natural and expressive, and also work on supporting new features.
 
-If you have suggestions for improvements to the API, I'd love to hear them. File an issue,
-or even better, reach out in the `bevy_mod_index` `#crate-help` thread on Bevy's [discord].
+## Performance
+I have not put a lot of effort into optimizing the performance indexes yet. However, I have
+done some initial tests under to get a sense of approximately how much overhead they add.
+
+With 1 million entities, while none of the components change frame-to-frame, using the 
+component itself as the index value, operation on ~300 entities takes:
+ - 2-4x as long as a naive iteration when using `NoStorage`.
+ - 3-5x as long as a naive iteration when using `HashmapStorage`.
+
+With the same setup, except that 5% of the entities are updated every frame, performance for
+`HashmapStorage` drops to 30-40x as long as naive iteration.
+
+I am currently in the process of adding more concrete benchmarks, and I do have some plans
+for changes that will affect performance.
+
+## Get in contact
+If you have suggestions for improvements to the API, or ideas about improving performance, 
+I'd love to hear them. File an issue, or even better, reach out in the `bevy_mod_index`
+`#crate-help` thread on Bevy's [discord].
 
 ## Troubleshooting
 - `Query<(bevy_ecs::entity::Entity, &bevy_mod_index::index::test::Number, bevy_ecs::query::fetch::ChangeTrackers<bevy_mod_index::index::test::Number>), ()> in system bevy_mod_index::index::test::adder_some::{{closure}} accesses component(s) bevy_mod_index::index::test::Number in a way that conflicts with a previous system parameter. Consider using ``Without<T>`` to create disjoint Queries or merging conflicting Queries into a ``ParamSet``.`
