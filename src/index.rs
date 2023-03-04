@@ -5,30 +5,50 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 use std::hash::Hash;
 
+/// Implement this trait on your own types to specify how an index should behave.
+///
+/// If there is a single canonical way to index a [`Component`], you can implement this
+/// for that component directly. Otherwise, it is recommended to implement this for a
+/// unit struct/enum.
 pub trait IndexInfo: Sized + 'static {
+    /// The type of component to be indexed.
     type Component: Component;
+    /// The type of value to be used when looking up components.
     type Value: Send + Sync + Hash + Eq + Clone;
+    /// The type of storage to use for the index.
     type Storage: IndexStorage<Self>;
 
+    /// The function used by [`Index::lookup`] to determine the value of a component.
+    ///
+    /// The values returned by this function are typically cached by the storage, so
+    /// this should always return the same value given equal Components.
     fn value(c: &Self::Component) -> Self::Value;
 }
 
+/// A [`SystemParam`] that allows you to lookup [`Component`]s that match a certain value.
 pub struct Index<'w, 's, T: IndexInfo + 'static> {
     storage: ResMut<'w, T::Storage>,
     refresh_data:
         StaticSystemParam<'w, 's, <T::Storage as IndexStorage<T>>::RefreshData<'static, 'static>>,
 }
 
+// todo impl deref instead? need to move storage?
 impl<'w, 's, T: IndexInfo> Index<'w, 's, T> {
+    /// Get all of the entities with relevant components that evaluate to the given value
+    /// using [`T::value`][`IndexInfo::value`].
     pub fn lookup(&mut self, val: &T::Value) -> HashSet<Entity> {
         self.storage.get(val, &mut self.refresh_data)
     }
 
+    /// Refresh the underlying [`IndexStorage`] for this index.
+    ///
+    /// This may or may not be necessary to call manually depending on the particular [`IndexStorage`] used.
     pub fn refresh(&mut self) {
         self.storage.refresh(&mut self.refresh_data)
     }
 }
 
+#[doc(hidden)]
 pub struct IndexFetchState<'w, 's, T: IndexInfo + 'static> {
     storage_state: <ResMut<'w, T::Storage> as SystemParam>::State,
     refresh_data_state: <StaticSystemParam<

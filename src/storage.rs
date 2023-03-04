@@ -6,19 +6,48 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 use std::marker::PhantomData;
 
+/// Defines the internal storage for an index, which is stored as a [`Resource`].
+///
+/// You should not need this for normal use beyond including the `Storage` type
+/// in your [`IndexInfo`] implementations, but you can use this to customize
+/// the storage of your index's data if necessary
+///
+/// This crate provides the following storage implementations:
+///
+/// | Feature | [`HashmapStorage`] | [`NoStorage`] |
+/// |---|---|---|
+/// | Automatic refresh timing | When used; once per-system run | N/A - it always reads the world data directly |
+/// | Sees updates from earlier in the system? | After manually calling [`refresh`][Self::refresh] | Yes |
+/// | Sees updates from earlier in the frame? | Yes | Yes |
 pub trait IndexStorage<I: IndexInfo>: Resource + Default {
+    /// [`SystemParam`] that is fetched alongside this storage [`Resource`] when
+    /// an [`Index`][crate::index::Index] is included in a system.
+    ///
+    /// It is passed in when querying or updating the index.
     type RefreshData<'w, 's>: SystemParam;
 
+    /// Get all of the entities with relevant components that evaluate to the given value
+    /// using [`T::value`][`IndexInfo::value`].
     fn get<'w, 's>(
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> HashSet<Entity>;
+
+    /// Refresh this storage with the latest state from the world.
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>);
 }
 
 // ==================================================================
 
+/// [`IndexStorage`] implementation that maintains a mapping from values to components
+/// which have that value.
+///
+/// | Feature | `HashmapStorage` |
+/// |---|---|
+/// | Automatic refresh timing | When used; once per-system run |
+/// | Sees updates from earlier in the system? | After manually calling [`refresh`][Self::refresh] |
+/// | Sees updates from earlier in the frame? | Yes |
 #[derive(Resource)]
 pub struct HashmapStorage<I: IndexInfo> {
     map: UniqueMultiMap<I::Value, Entity>,
@@ -80,6 +109,16 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
 
 //======================================================================
 
+/// [`IndexStorage`] implementation that doesn't actually store anything.
+///
+/// Whenever it is queried, it iterates over all components like you would if you weren't
+/// using an index.
+///
+/// | Feature | `NoStorage` |
+/// |---|---|
+/// | Automatic refresh timing | N/A - it always reads the world data directly |
+/// | Sees updates from earlier in the system? | Yes |
+/// | Sees updates from earlier in the frame? | Yes |
 #[derive(Resource)]
 pub struct NoStorage<I: IndexInfo> {
     phantom: PhantomData<fn() -> I>,
