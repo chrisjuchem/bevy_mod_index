@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mod_index"
-version = "0.1.0"
+version = "0.2.0-dev"
 description = "Allows using indexes to efficiently query for components by their values in the game engine Bevy."
 keywords = [ "index", "indexes", "indices", "bevy", "bevyengine"]
 categories = [ "game-davelopment", "data-structures" ]
