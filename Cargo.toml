@@ -14,15 +14,13 @@ edition = "2021"
 opt-level = 3
 
 [dependencies.bevy]
+version = "0.10"
 default_features = false
-git = "https://github.com/bevyengine/bevy"
-branch = "main"
 
 # Dependencies for examples
 [dev-dependencies]
 rand = "0.8.5"
 
 [dev-dependencies.bevy]
-git = "https://github.com/bevyengine/bevy"
-branch = "main"
+version = "0.10"
 features = ["dynamic_linking"]
