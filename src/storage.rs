@@ -51,14 +51,14 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
 #[derive(Resource)]
 pub struct HashmapStorage<I: IndexInfo> {
     map: UniqueMultiMap<I::Value, Entity>,
-    last_refresh_tick: u32,
+    last_refresh_tick: Tick,
 }
 
 impl<I: IndexInfo> Default for HashmapStorage<I> {
     fn default() -> Self {
         Self {
             map: Default::default(),
-            last_refresh_tick: 0,
+            last_refresh_tick: Tick::new(0),
         }
     }
 }
@@ -71,7 +71,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> HashSet<Entity> {
-        if self.last_refresh_tick != data.ticks.change_tick() {
+        if self.last_refresh_tick != data.ticks.this_run() {
             self.refresh(data);
         }
         self.map.get(val)
@@ -82,17 +82,17 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
             self.map.remove(&entity);
         }
         for (entity, component) in &data.components {
-            if Tick::new(component.last_changed()).is_newer_than(
+            if component.last_changed().is_newer_than(
                 // Subtract 1 so that changes from the system where the index was updated are seen.
-                // The `changed` implementation assumes we don't care about those changes since
+                // The `is_newer_than` implementation assumes we don't care about those changes since
                 // "this" system is the one that made the change, but for indexing, we do care.
-                self.last_refresh_tick.wrapping_sub(1),
-                data.ticks.change_tick(),
+                Tick::new(self.last_refresh_tick.get().wrapping_sub(1)),
+                data.ticks.this_run(),
             ) {
                 self.map.insert(&I::value(&component), &entity);
             }
         }
-        self.last_refresh_tick = data.ticks.change_tick();
+        self.last_refresh_tick = data.ticks.this_run();
     }
 }
 
@@ -103,7 +103,7 @@ type ComponentsQuery<'w, 's, T> =
 #[derive(SystemParam)]
 pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
     components: ComponentsQuery<'w, 's, I>,
-    removals: RemovedComponents<'w, 's, I::Component>,
+    removals: RemovedComponents<'w, 's, <I as IndexInfo>::Component>,
     ticks: SystemChangeTick,
 }
 

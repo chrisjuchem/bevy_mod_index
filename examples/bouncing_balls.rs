@@ -150,6 +150,8 @@ fn update_colors(
         if let Some(mut pos) = windows.single().cursor_position() {
             pos.x -= MAX_WIDTH;
             pos.y -= MAX_HEIGHT;
+            // convert screen space to world space
+            pos.y = -pos.y;
             let cursor_region = get_region(&pos);
 
             let mat = colors.random(&mut thread_rng());
@@ -164,9 +166,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Colors::default())
-        .add_startup_system(setup)
-        .add_system(move_balls)
-        .add_system(bounce)
-        .add_system(update_colors)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_balls, bounce))
+        .add_systems(Update, update_colors)
         .run();
 }

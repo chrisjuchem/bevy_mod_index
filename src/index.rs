@@ -1,6 +1,8 @@
 use crate::storage::IndexStorage;
 use bevy::ecs::archetype::Archetype;
+use bevy::ecs::component::Tick;
 use bevy::ecs::system::{ReadOnlySystemParam, StaticSystemParam, SystemMeta, SystemParam};
+use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use std::hash::Hash;
@@ -101,8 +103,8 @@ where
     unsafe fn get_param<'w2, 's2>(
         state: &'s2 mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w2 World,
-        change_tick: u32,
+        world: UnsafeWorldCell<'w2>,
+        change_tick: Tick,
     ) -> Self::Item<'w2, 's2> {
         Index {
             storage: <ResMut<'w, I::Storage>>::get_param(
@@ -196,40 +198,40 @@ mod test {
     #[test]
     fn test_index_lookup() {
         App::new()
-            .add_startup_system(add_some_numbers)
-            .add_system(checker(10, 2))
-            .add_system(checker(20, 1))
-            .add_system(checker(30, 1))
-            .add_system(checker(40, 0))
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(Update, checker(10, 2))
+            .add_systems(Update, checker(20, 1))
+            .add_systems(Update, checker(30, 1))
+            .add_systems(Update, checker(40, 0))
             .run();
     }
 
     #[test]
     fn test_changing_values() {
         App::new()
-            .add_startup_system(add_some_numbers)
-            .add_system(checker(10, 2).in_base_set(CoreSet::PreUpdate))
-            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
-            .add_system(checker(30, 1).in_base_set(CoreSet::PreUpdate))
-            .add_system(adder_all(5))
-            .add_system(checker(10, 0).in_base_set(CoreSet::PostUpdate))
-            .add_system(checker(20, 0).in_base_set(CoreSet::PostUpdate))
-            .add_system(checker(30, 0).in_base_set(CoreSet::PostUpdate))
-            .add_system(checker(15, 2).in_base_set(CoreSet::PostUpdate))
-            .add_system(checker(25, 1).in_base_set(CoreSet::PostUpdate))
-            .add_system(checker(35, 1).in_base_set(CoreSet::PostUpdate))
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(PreUpdate, checker(10, 2))
+            .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(PreUpdate, checker(30, 1))
+            .add_systems(Update, adder_all(5))
+            .add_systems(PostUpdate, checker(10, 0))
+            .add_systems(PostUpdate, checker(20, 0))
+            .add_systems(PostUpdate, checker(30, 0))
+            .add_systems(PostUpdate, checker(15, 2))
+            .add_systems(PostUpdate, checker(25, 1))
+            .add_systems(PostUpdate, checker(35, 1))
             .run();
     }
 
     #[test]
     fn test_changing_with_index() {
         App::new()
-            .add_startup_system(add_some_numbers)
-            .add_system(checker(10, 2).in_base_set(CoreSet::PreUpdate))
-            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
-            .add_system(adder_some(10, 10))
-            .add_system(checker(10, 0).in_base_set(CoreSet::PostUpdate))
-            .add_system(checker(20, 3).in_base_set(CoreSet::PostUpdate))
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(PreUpdate, checker(10, 2))
+            .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(Update, adder_some(10, 10))
+            .add_systems(PostUpdate, checker(10, 0))
+            .add_systems(PostUpdate, checker(20, 3))
             .run();
     }
 
@@ -256,8 +258,8 @@ mod test {
             };
 
         App::new()
-            .add_startup_system(add_some_numbers)
-            .add_system(manual_refresh_system)
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(Update, manual_refresh_system)
             .run();
     }
 
@@ -284,38 +286,28 @@ mod test {
     #[test]
     fn test_removal_detection() {
         App::new()
-            .add_startup_system(add_some_numbers)
-            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
-            .add_system(remover(20).in_base_set(CoreSet::Update))
-            .add_system(next_frame.in_base_set(CoreSet::PostUpdate))
-            .add_system(
-                remover(30)
-                    .after(next_frame)
-                    .in_base_set(CoreSet::PostUpdate),
-            )
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(Update, remover(20))
+            .add_systems(PostUpdate, (next_frame, remover(30)).chain())
             // Detect component removed this earlier this frame
-            .add_system(checker(30, 0).in_base_set(CoreSet::Last))
+            .add_systems(Last, checker(30, 0))
             // Detect component removed after we ran last stage
-            .add_system(checker(20, 0).in_base_set(CoreSet::Last))
+            .add_systems(Last, checker(20, 0))
             .run();
     }
 
     #[test]
     fn test_despawn_detection() {
         App::new()
-            .add_startup_system(add_some_numbers)
-            .add_system(checker(20, 1).in_base_set(CoreSet::PreUpdate))
-            .add_system(despawner(20).in_base_set(CoreSet::Update))
-            .add_system(next_frame.in_base_set(CoreSet::PostUpdate))
-            .add_system(
-                despawner(30)
-                    .after(next_frame)
-                    .in_base_set(CoreSet::PostUpdate),
-            )
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(Update, despawner(20))
+            .add_systems(PostUpdate, (next_frame, despawner(30)).chain())
             // Detect component removed this earlier this frame
-            .add_system(checker(30, 0).in_base_set(CoreSet::Last))
+            .add_systems(Last, checker(30, 0))
             // Detect component removed after we ran last stage
-            .add_system(checker(20, 0).in_base_set(CoreSet::Last))
+            .add_systems(Last, checker(20, 0))
             .run();
     }
 }
