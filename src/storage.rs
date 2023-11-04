@@ -78,7 +78,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     }
 
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
-        for entity in data.removals.iter() {
+        for entity in data.removals.read() {
             self.map.remove(&entity);
         }
         for (entity, component) in &data.components {
