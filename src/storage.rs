@@ -69,11 +69,8 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     fn lookup<'w, 's>(
         &mut self,
         val: &I::Value,
-        data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
+        _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> HashSet<Entity> {
-        if self.last_refresh_tick != data.ticks.this_run() {
-            self.refresh(data);
-        }
         self.map.get(val)
     }
 

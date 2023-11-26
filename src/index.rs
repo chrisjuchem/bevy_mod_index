@@ -106,7 +106,7 @@ where
         world: UnsafeWorldCell<'w2>,
         change_tick: Tick,
     ) -> Self::Item<'w2, 's2> {
-        Index {
+        let mut res = Index {
             storage: <ResMut<'w, I::Storage>>::get_param(
                 &mut state.storage_state,
                 system_meta,
@@ -123,7 +123,9 @@ where
                 world,
                 change_tick,
             ),
-        }
+        };
+        res.refresh();
+        res
     }
 }
 unsafe impl<'w, 's, I: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, I>
