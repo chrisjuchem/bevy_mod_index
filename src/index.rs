@@ -250,9 +250,9 @@ mod test {
                 }
                 idx = nums_and_index.p1(); // reborrow here so earlier p0 borrow succeeds
 
-                // Hasn't refreshed yet
-                assert_eq!(idx.lookup(&Number(20)).len(), 1);
-                assert_eq!(idx.lookup(&Number(25)).len(), 0);
+                // Already refreshed
+                assert_eq!(idx.lookup(&Number(20)).len(), 0);
+                assert_eq!(idx.lookup(&Number(25)).len(), 1);
 
                 idx.refresh();
                 assert_eq!(idx.lookup(&Number(20)).len(), 0);
