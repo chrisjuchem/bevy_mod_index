@@ -3,7 +3,7 @@
 [![](https://img.shields.io/crates/v/bevy_mod_index)](https://crates.io/crates/bevy_mod_index)
 [![](https://docs.rs/bevy_mod_index/badge.svg)](https://docs.rs/bevy_mod_index/latest/bevy_mod_index)
 [![](https://img.shields.io/crates/d/bevy_mod_index)](https://crates.io/crates/bevy_mod_index)
-[![](https://img.shields.io/badge/Bevy%20version-v0.12.0-orange)](https://crates.io/crates/bevy/0.12.0)
+[![](https://img.shields.io/badge/Bevy%20version-v0.12.x-orange)](https://crates.io/crates/bevy/0.12.0)
 [![](https://img.shields.io/github/license/chrisjuchem/bevy_mod_index?color=blue)](https://github.com/chrisjuchem/bevy_mod_index/blob/main/LICENSE)
 [![](https://img.shields.io/github/stars/chrisjuchem/bevy_mod_index?color=green)](https://github.com/chrisjuchem/bevy_mod_index/stargazers)
 
@@ -123,6 +123,7 @@ over all components yourself)
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
 |--------------|--------------------------|
+| 0.12         | 0.3.0                    |
 | 0.11         | 0.2.0                    |
 | 0.10         | 0.1.0                    |
 
