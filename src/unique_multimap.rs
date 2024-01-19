@@ -1,3 +1,4 @@
+use bevy::utils::hashbrown::hash_set::Iter;
 use bevy::utils::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -23,16 +24,15 @@ where
     K: Hash + Eq + Clone,
     V: Hash + Eq + Clone,
 {
-    pub fn get(&self, k: &K) -> HashSet<V> {
-        self.map
-            .get(k)
-            .map(|set| set.clone())
-            .unwrap_or_else(|| HashSet::new())
+    pub fn get(&self, k: &K) -> impl Iterator<Item = &V> {
+        MultiMapValueIter {
+            inner: self.map.get(k).map(|hashset| hashset.iter()),
+        }
     }
 
     /// Returns value's old key
-    // Todo: rely a little less on clone
-    pub fn insert(&mut self, new_k: &K, v: &V) -> Option<K> {
+    // Todo: don't rely on clone
+    pub fn insert(&mut self, new_k: &K, v: V) -> Option<K> {
         let maybe_old_k = self.rev_map.insert(v.clone(), new_k.clone());
 
         if let Some(old_k) = &maybe_old_k {
@@ -45,7 +45,7 @@ where
             self.purge_from_forward(old_k, v, "insert");
         }
         // insert new value
-        self.map.get_mut_or_insert_default(new_k).insert(v.clone());
+        self.map.get_mut_or_insert_default(new_k).insert(v);
 
         maybe_old_k
     }
@@ -99,5 +99,16 @@ impl<K: Eq + Hash + Clone, V: Default> HashMapExt<K, V> for HashMap<K, V> {
         }
         // We just inserted a value if one wasn't there, so unwrap is ok
         self.get_mut(k).unwrap()
+    }
+}
+
+struct MultiMapValueIter<'a, V> {
+    inner: Option<Iter<'a, V>>,
+}
+impl<'a, V> Iterator for MultiMapValueIter<'a, V> {
+    type Item = &'a V;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.as_mut().and_then(|iter| iter.next())
     }
 }

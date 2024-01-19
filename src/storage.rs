@@ -4,7 +4,6 @@ use crate::unique_multimap::UniqueMultiMap;
 use bevy::ecs::component::Tick;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
 use bevy::prelude::*;
-use bevy::utils::HashSet;
 use std::marker::PhantomData;
 
 /// Defines the internal storage for an index, which is stored as a [`Resource`].
@@ -29,7 +28,7 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
-    ) -> HashSet<Entity>;
+    ) -> impl Iterator<Item = Entity>;
 
     /// Refresh this storage with the latest state from the world if it hasn't already been refreshed
     /// this [`Tick`].
@@ -67,11 +66,11 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
-    ) -> HashSet<Entity> {
+    ) -> impl Iterator<Item = Entity> {
         if I::RefreshPolicy::REFRESH_WHEN_USED {
             self.refresh(data);
         }
-        self.map.get(val)
+        self.map.get(val).map(|e| *e)
     }
 
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
@@ -92,7 +91,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
                 Tick::new(self.last_refresh_tick.get().wrapping_sub(1)),
                 data.ticks.this_run(),
             ) {
-                self.map.insert(&I::value(&component), &entity);
+                self.map.insert(&I::value(&component), entity);
             }
         }
         self.last_refresh_tick = data.ticks.this_run();
@@ -116,7 +115,10 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
 ///
 /// Whenever it is queried, it iterates over all components like you naively would if you weren't
 /// using an index. This allows you to use the `Index` interface without actually using any extra
-/// storage.
+/// memory.
+///
+/// This storage never needs to be refreshed, so [`ManualRefreshPolicy`](crate::refresh_policy::ManualRefreshPolicy)
+/// is usually the best choice for index definitions that use `NoStorage`.
 #[derive(Resource)]
 pub struct NoStorage<I: IndexInfo> {
     phantom: PhantomData<fn() -> I>,
@@ -136,10 +138,9 @@ impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
         &mut self,
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
-    ) -> HashSet<Entity> {
+    ) -> impl Iterator<Item = Entity> {
         data.iter()
             .filter_map(|(e, c)| if I::value(c) == *val { Some(e) } else { None })
-            .collect()
     }
 
     fn refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}

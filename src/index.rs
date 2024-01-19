@@ -5,7 +5,6 @@ use bevy::ecs::component::Tick;
 use bevy::ecs::system::{ReadOnlySystemParam, StaticSystemParam, SystemMeta, SystemParam};
 use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::prelude::*;
-use bevy::utils::HashSet;
 use std::hash::Hash;
 
 /// Implement this trait on your own types to specify how an [`Index`] should behave.
@@ -37,11 +36,19 @@ pub struct Index<'w, 's, I: IndexInfo + 'static> {
         StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>>,
 }
 
+#[doc(hidden)]
+/// Thanks Jon https://youtu.be/CWiz_RtA1Hw?t=815
+pub trait Captures<U> {}
+impl<T: ?Sized, U> Captures<U> for T {}
+
 // todo impl deref instead? need to move storage?
 impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// Get all of the entities with relevant components that evaluate to the given value
     /// using [`I::value`][`IndexInfo::value`].
-    pub fn lookup(&mut self, val: &I::Value) -> HashSet<Entity> {
+    pub fn lookup<'i, 'self_>(
+        &'self_ mut self,
+        val: &'i I::Value,
+    ) -> impl Iterator<Item = Entity> + Captures<(&'w (), &'s (), &'self_ (), &'i ())> {
         self.storage.lookup(val, &mut self.refresh_data)
     }
 

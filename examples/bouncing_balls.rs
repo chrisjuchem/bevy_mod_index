@@ -156,8 +156,8 @@ fn update_colors(
             let cursor_region = get_region(&pos);
 
             let mat = colors.random(&mut thread_rng());
-            for e in &index.lookup(&cursor_region) {
-                commands.entity(*e).insert(mat.clone());
+            for e in index.lookup(&cursor_region) {
+                commands.entity(e).insert(mat.clone());
             }
         }
     }
