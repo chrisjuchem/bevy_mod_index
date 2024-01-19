@@ -1,4 +1,5 @@
 use crate::index::IndexInfo;
+use crate::refresh_policy::IndexRefreshPolicy;
 use crate::unique_multimap::UniqueMultiMap;
 use bevy::ecs::component::Tick;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
@@ -14,11 +15,7 @@ use std::marker::PhantomData;
 ///
 /// This crate provides the following storage implementations:
 ///
-/// | Feature | [`HashmapStorage`] | [`NoStorage`] |
-/// |---|---|---|
-/// | Automatic refresh timing | When used; once per-system run | N/A - it always reads the world data directly |
-/// | Sees updates from earlier in the system? | After manually calling [`refresh`][Self::refresh] | Yes |
-/// | Sees updates from earlier in the frame? | Yes | Yes |
+/// [`HashmapStorage`], [`NoStorage`]
 pub trait IndexStorage<I: IndexInfo>: Resource + Default {
     /// [`SystemParam`] that is fetched alongside this storage [`Resource`] when
     /// an [`Index`][crate::index::Index] is included in a system.
@@ -34,20 +31,20 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> HashSet<Entity>;
 
-    /// Refresh this storage with the latest state from the world.
+    /// Refresh this storage with the latest state from the world if it hasn't already been refreshed
+    /// this [`Tick`].
+    ///
+    /// Note: 1 [`Tick`] = 1 system, not 1 frame.
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>);
+
+    /// Unconditionally refresh this storage with the latest state from the world.
+    fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>);
 }
 
 // ==================================================================
 
-/// [`IndexStorage`] implementation that maintains a mapping from values to components
-/// which have that value.
-///
-/// | Feature | `HashmapStorage` |
-/// |---|---|
-/// | Automatic refresh timing | When used; once per-system run |
-/// | Sees updates from earlier in the system? | After manually calling [`refresh`][Self::refresh] |
-/// | Sees updates from earlier in the frame? | Yes |
+/// [`IndexStorage`] implementation that maintains a HashMap from values to [`Entity`]s whose
+/// components have that value.
 #[derive(Resource)]
 pub struct HashmapStorage<I: IndexInfo> {
     map: UniqueMultiMap<I::Value, Entity>,
@@ -71,13 +68,19 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> HashSet<Entity> {
-        if self.last_refresh_tick != data.ticks.this_run() {
+        if I::RefreshPolicy::REFRESH_WHEN_USED {
             self.refresh(data);
         }
         self.map.get(val)
     }
 
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
+        if self.last_refresh_tick != data.ticks.this_run() {
+            self.force_refresh(data);
+        }
+    }
+
+    fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
         for entity in data.removals.read() {
             self.map.remove(&entity);
         }
@@ -111,14 +114,9 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
 
 /// [`IndexStorage`] implementation that doesn't actually store anything.
 ///
-/// Whenever it is queried, it iterates over all components like you would if you weren't
-/// using an index.
-///
-/// | Feature | `NoStorage` |
-/// |---|---|
-/// | Automatic refresh timing | N/A - it always reads the world data directly |
-/// | Sees updates from earlier in the system? | Yes |
-/// | Sees updates from earlier in the frame? | Yes |
+/// Whenever it is queried, it iterates over all components like you naively would if you weren't
+/// using an index. This allows you to use the `Index` interface without actually using any extra
+/// storage.
 #[derive(Resource)]
 pub struct NoStorage<I: IndexInfo> {
     phantom: PhantomData<fn() -> I>,
@@ -145,4 +143,6 @@ impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
     }
 
     fn refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
+
+    fn force_refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
 }

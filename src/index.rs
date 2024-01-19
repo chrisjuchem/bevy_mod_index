@@ -1,3 +1,4 @@
+use crate::refresh_policy::{refresh_index_system, IndexRefreshPolicy};
 use crate::storage::IndexStorage;
 use bevy::ecs::archetype::Archetype;
 use bevy::ecs::component::Tick;
@@ -7,7 +8,7 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 use std::hash::Hash;
 
-/// Implement this trait on your own types to specify how an index should behave.
+/// Implement this trait on your own types to specify how an [`Index`] should behave.
 ///
 /// If there is a single canonical way to index a [`Component`], you can implement this
 /// for that component directly. Otherwise, it is recommended to implement this for a
@@ -19,11 +20,13 @@ pub trait IndexInfo: Sized + 'static {
     type Value: Send + Sync + Hash + Eq + Clone;
     /// The type of storage to use for the index.
     type Storage: IndexStorage<Self>;
+    /// The [`IndexRefreshPolicy`] to use to automatically refresh the index.
+    type RefreshPolicy: IndexRefreshPolicy;
 
     /// The function used by [`Index::lookup`] to determine the value of a component.
     ///
     /// The values returned by this function are typically cached by the storage, so
-    /// this should always return the same value given equal Components.
+    /// this should always return the same value given equal [`Component`]s.
     fn value(c: &Self::Component) -> Self::Value;
 }
 
@@ -42,11 +45,21 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
         self.storage.lookup(val, &mut self.refresh_data)
     }
 
-    /// Refresh the underlying [`IndexStorage`] for this index.
+    /// Refresh the underlying [`IndexStorage`] for this index if it hasn't already been refreshed
+    /// this [`Tick`].
     ///
-    /// This may or may not be necessary to call manually depending on the particular [`IndexStorage`] used.
+    /// Note: 1 [`Tick`] = 1 system, not 1 frame.
+    ///
+    /// This may or may not be necessary to call manually depending on the particular [`IndexRefreshPolicy`] used.
     pub fn refresh(&mut self) {
         self.storage.refresh(&mut self.refresh_data)
+    }
+
+    /// Unconditionally refresh the underlying [`IndexStorage`] for this index.
+    ///
+    /// This must be called before the index will reflect changes made earlier in the same system.
+    pub fn force_refresh(&mut self) {
+        self.storage.force_refresh(&mut self.refresh_data)
     }
 }
 
@@ -66,7 +79,17 @@ where
     type State = IndexFetchState<'static, 'static, I>;
     type Item<'_w, '_s> = Index<'_w, '_s, I>;
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        world.init_resource::<I::Storage>();
+        if !world.contains_resource::<I::Storage>() {
+            world.init_resource::<I::Storage>();
+            if I::RefreshPolicy::REFRESH_EVERY_FRAME {
+                let label = I::RefreshPolicy::schedule();
+                world
+                    .resource_mut::<Schedules>()
+                    .get_mut(label.clone())
+                    .expect(&format!("Can't find schedule `{label:?}`."))
+                    .add_systems(refresh_index_system::<I>);
+            }
+        }
         IndexFetchState {
             storage_state: <ResMut<'w, I::Storage> as SystemParam>::init_state(world, system_meta),
             refresh_data_state: <StaticSystemParam<
@@ -106,7 +129,7 @@ where
         world: UnsafeWorldCell<'w2>,
         change_tick: Tick,
     ) -> Self::Item<'w2, 's2> {
-        Index {
+        let mut idx = Index {
             storage: <ResMut<'w, I::Storage>>::get_param(
                 &mut state.storage_state,
                 system_meta,
@@ -123,7 +146,11 @@ where
                 world,
                 change_tick,
             ),
+        };
+        if I::RefreshPolicy::REFRESH_WHEN_RUN {
+            idx.refresh()
         }
+        idx
     }
 }
 unsafe impl<'w, 's, I: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, I>
@@ -147,6 +174,7 @@ mod test {
         type Component = Self;
         type Value = Self;
         type Storage = HashmapStorage<Self>;
+        type RefreshPolicy = ConservativeRefreshPolicy;
 
         fn value(c: &Self::Component) -> Self::Value {
             c.clone()
@@ -252,7 +280,12 @@ mod test {
                 assert_eq!(idx.lookup(&Number(20)).len(), 1);
                 assert_eq!(idx.lookup(&Number(25)).len(), 0);
 
+                // already refreshed once this frame, need to use force.
                 idx.refresh();
+                assert_eq!(idx.lookup(&Number(20)).len(), 1);
+                assert_eq!(idx.lookup(&Number(25)).len(), 0);
+
+                idx.force_refresh();
                 assert_eq!(idx.lookup(&Number(20)).len(), 0);
                 assert_eq!(idx.lookup(&Number(25)).len(), 1);
             };
@@ -288,6 +321,7 @@ mod test {
         App::new()
             .add_systems(Startup, add_some_numbers)
             .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(PreUpdate, checker(30, 1))
             .add_systems(Update, remover(20))
             .add_systems(PostUpdate, (next_frame, remover(30)).chain())
             // Detect component removed this earlier this frame
@@ -302,6 +336,7 @@ mod test {
         App::new()
             .add_systems(Startup, add_some_numbers)
             .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(PreUpdate, checker(30, 1))
             .add_systems(Update, despawner(20))
             .add_systems(PostUpdate, (next_frame, despawner(30)).chain())
             // Detect component removed this earlier this frame
@@ -309,5 +344,29 @@ mod test {
             // Detect component removed after we ran last stage
             .add_systems(Last, checker(20, 0))
             .run();
+    }
+
+    #[test]
+    fn test_despawn_detection_2_frames() {
+        let mut app = App::new();
+        app.add_systems(Startup, add_some_numbers)
+            .add_systems(PostStartup, checker(20, 1))
+            .add_systems(PostStartup, checker(30, 1));
+
+        app.add_systems(Update, despawner(20));
+        app.update();
+
+        // Clear update schedule
+        app.world
+            .resource_mut::<Schedules>()
+            .insert(Schedule::new(Update));
+        app.update();
+
+        app.add_systems(Update, despawner(30))
+            // Detect component removed this earlier this frame
+            .add_systems(Last, checker(30, 0))
+            // Detect component removed multiple frames ago stage
+            .add_systems(Last, checker(20, 0));
+        app.update();
     }
 }

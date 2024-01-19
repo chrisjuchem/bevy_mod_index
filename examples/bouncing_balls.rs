@@ -29,6 +29,7 @@ impl IndexInfo for RegionIndex {
     type Component = Transform;
     type Value = Region;
     type Storage = HashmapStorage<Self>;
+    type RefreshPolicy = NoDespawnRefreshPolicy;
 
     fn value(t: &Transform) -> Region {
         get_region(&t.translation.xy())

@@ -3,8 +3,7 @@ use std::hash::Hash;
 
 /// Map where a key can have multiple values, but a value can only exist for one key at a time.
 /// Re-inserting a value is a no-op if it already exists under the same key, otherwise the value is
-/// removed from under it's present key and added under the new key.
-
+/// removed from under its present key and added under the new key.
 pub struct UniqueMultiMap<K, V> {
     map: HashMap<K, HashSet<V>>,
     rev_map: HashMap<V, K>,
