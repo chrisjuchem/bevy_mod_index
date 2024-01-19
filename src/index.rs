@@ -45,11 +45,30 @@ impl<T: ?Sized, U> Captures<U> for T {}
 impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// Get all of the entities with relevant components that evaluate to the given value
     /// using [`I::value`][`IndexInfo::value`].
+    ///
+    /// Refreshes the index if it has not yet been refreshed in this system and the index's
+    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
     pub fn lookup<'i, 'self_>(
         &'self_ mut self,
         val: &'i I::Value,
     ) -> impl Iterator<Item = Entity> + Captures<(&'w (), &'s (), &'self_ (), &'i ())> {
         self.storage.lookup(val, &mut self.refresh_data)
+    }
+
+    /// Get the single entity with relevant components that evaluate to the given value
+    /// using [`I::value`][`IndexInfo::value`].
+    ///
+    /// Refreshes the index if it has not yet been refreshed in this system and the index's
+    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    ///
+    /// Panics if there is not exactly one `Entity` returned by the lookup.
+    pub fn lookup_single(&mut self, val: &I::Value) -> Entity {
+        let mut it = self.lookup(val);
+        match (it.next(), it.next()) {
+            (None, _) => panic!("Expected 1 entity in index, found 0."),
+            (Some(e), None) => e,
+            (Some(_), Some(_)) => panic!("Expected 1 entity in index, found multiple."),
+        }
     }
 
     /// Refresh the underlying [`IndexStorage`] for this index if it hasn't already been refreshed
@@ -244,6 +263,40 @@ mod test {
             .add_systems(Update, checker(30, 1))
             .add_systems(Update, checker(40, 0))
             .run();
+    }
+
+    #[test]
+    fn test_index_lookup_single() {
+        App::new()
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(Update, |mut idx: Index<Number>| {
+                let num = Number(20);
+                assert_eq!(
+                    vec![idx.lookup_single(&num)],
+                    idx.lookup(&num).collect::<Vec<_>>()
+                );
+            })
+            .run()
+    }
+    #[test]
+    #[should_panic]
+    fn test_index_lookup_single_but_zero() {
+        App::new()
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(Update, |mut idx: Index<Number>| {
+                idx.lookup_single(&Number(55));
+            })
+            .run()
+    }
+    #[test]
+    #[should_panic]
+    fn test_index_lookup_single_but_many() {
+        App::new()
+            .add_systems(Startup, add_some_numbers)
+            .add_systems(Update, |mut idx: Index<Number>| {
+                idx.lookup_single(&Number(10));
+            })
+            .run()
     }
 
     #[test]
