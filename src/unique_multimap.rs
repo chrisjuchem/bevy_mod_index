@@ -42,7 +42,7 @@ where
             }
 
             // remove old value; its key must exist according to rev_map
-            self.purge_from_forward(old_k, v, "insert");
+            self.purge_from_forward(old_k, &v, "insert");
         }
         // insert new value
         self.map.get_mut_or_insert_default(new_k).insert(v);

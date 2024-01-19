@@ -197,14 +197,13 @@ mod test {
 
     fn checker(number: usize, amount: usize) -> impl Fn(Index<Number>) {
         move |mut idx: Index<Number>| {
-            let set = idx.lookup(&Number(number));
+            let num = &Number(number);
+            let set = idx.lookup(num);
+            let n = set.count();
             assert_eq!(
-                set.len(),
-                amount,
+                n, amount,
                 "Index returned {} matches for {}, expectd {}.",
-                set.len(),
-                number,
-                amount,
+                n, number, amount,
             );
         }
     }
@@ -222,7 +221,13 @@ mod test {
         condition: usize,
     ) -> impl Fn(ParamSet<(Query<&mut Number>, Index<Number>)>) {
         move |mut nums_and_index: ParamSet<(Query<&mut Number>, Index<Number>)>| {
-            for entity in nums_and_index.p1().lookup(&Number(condition)).into_iter() {
+            let num = &Number(condition);
+            for entity in nums_and_index
+                .p1()
+                .lookup(num)
+                .collect::<Vec<_>>()
+                .into_iter()
+            {
                 let mut nums = nums_and_index.p0();
                 let mut nref: Mut<Number> = nums.get_mut(entity).unwrap();
                 nref.0 += n;
@@ -275,7 +280,7 @@ mod test {
         let manual_refresh_system =
             |mut nums_and_index: ParamSet<(Query<&mut Number>, Index<Number>)>| {
                 let mut idx = nums_and_index.p1();
-                let twenties = idx.lookup(&Number(20));
+                let twenties = idx.lookup(&Number(20)).collect::<Vec<_>>();
                 assert_eq!(twenties.len(), 1);
 
                 for entity in twenties.into_iter() {
@@ -284,17 +289,17 @@ mod test {
                 idx = nums_and_index.p1(); // reborrow here so earlier p0 borrow succeeds
 
                 // Hasn't refreshed yet
-                assert_eq!(idx.lookup(&Number(20)).len(), 1);
-                assert_eq!(idx.lookup(&Number(25)).len(), 0);
+                assert_eq!(idx.lookup(&Number(20)).count(), 1);
+                assert_eq!(idx.lookup(&Number(25)).count(), 0);
 
                 // already refreshed once this frame, need to use force.
                 idx.refresh();
-                assert_eq!(idx.lookup(&Number(20)).len(), 1);
-                assert_eq!(idx.lookup(&Number(25)).len(), 0);
+                assert_eq!(idx.lookup(&Number(20)).count(), 1);
+                assert_eq!(idx.lookup(&Number(25)).count(), 0);
 
                 idx.force_refresh();
-                assert_eq!(idx.lookup(&Number(20)).len(), 0);
-                assert_eq!(idx.lookup(&Number(25)).len(), 1);
+                assert_eq!(idx.lookup(&Number(20)).count(), 0);
+                assert_eq!(idx.lookup(&Number(25)).count(), 1);
             };
 
         App::new()
