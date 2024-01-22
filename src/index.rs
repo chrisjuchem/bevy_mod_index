@@ -1,3 +1,4 @@
+use crate::component_tuple::ComponentTuple;
 use crate::refresh_policy::{refresh_index_system, IndexRefreshPolicy};
 use crate::storage::IndexStorage;
 use bevy::ecs::archetype::Archetype;
@@ -14,7 +15,7 @@ use std::hash::Hash;
 /// unit struct/enum.
 pub trait IndexInfo: Sized + 'static {
     /// The type of component to be indexed.
-    type Component: Component;
+    type Components: ComponentTuple;
     /// The type of value to be used when looking up components.
     type Value: Send + Sync + Hash + Eq + Clone;
     /// The type of storage to use for the index.
@@ -26,7 +27,7 @@ pub trait IndexInfo: Sized + 'static {
     ///
     /// The values returned by this function are typically cached by the storage, so
     /// this should always return the same value given equal [`Component`]s.
-    fn value(c: &Self::Component) -> Self::Value;
+    fn value(c: <Self::Components as ComponentTuple>::Refs<'_>) -> Self::Value;
 }
 
 /// A [`SystemParam`] that allows you to lookup [`Component`]s that match a certain value.
@@ -197,13 +198,13 @@ mod test {
 
     //todo: maybe make this a derive macro
     impl IndexInfo for Number {
-        type Component = Self;
+        type Components = (Self,);
         type Value = Self;
         type Storage = HashmapStorage<Self>;
         type RefreshPolicy = ConservativeRefreshPolicy;
 
-        fn value(c: &Self::Component) -> Self::Value {
-            c.clone()
+        fn value(c: (&Self,)) -> Self::Value {
+            c.0.clone()
         }
     }
 

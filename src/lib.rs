@@ -17,6 +17,7 @@ pub mod storage;
 /// Policy definitions and utilities for automatically refreshing indexes.
 pub mod refresh_policy;
 
+mod component_tuple;
 mod unique_multimap;
 
 /// Commonly used types.

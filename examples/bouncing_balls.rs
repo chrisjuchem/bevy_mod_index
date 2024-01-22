@@ -26,7 +26,7 @@ impl Colors {
 
 struct RegionIndex;
 impl IndexInfo for RegionIndex {
-    type Component = Transform;
+    type Components = &'static Transform;
     type Value = Region;
     type Storage = HashmapStorage<Self>;
     type RefreshPolicy = NoDespawnRefreshPolicy;

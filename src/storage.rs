@@ -1,3 +1,5 @@
+use crate::component_tuple::ComponentTuple;
+use crate::component_tuple::RemovedComponentIter;
 use crate::index::IndexInfo;
 use crate::refresh_policy::IndexRefreshPolicy;
 use crate::unique_multimap::UniqueMultiMap;
@@ -80,32 +82,43 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     }
 
     fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
-        for entity in data.removals.read() {
+        for entity in data.removals.read_all() {
             self.map.remove(&entity);
         }
-        for (entity, component) in &data.components {
-            if component.last_changed().is_newer_than(
-                // Subtract 1 so that changes from the system where the index was updated are seen.
-                // The `is_newer_than` implementation assumes we don't care about those changes since
-                // "this" system is the one that made the change, but for indexing, we do care.
-                Tick::new(self.last_refresh_tick.get().wrapping_sub(1)),
-                data.ticks.this_run(),
-            ) {
-                self.map.insert(&I::value(&component), entity);
-            }
+        for (entity, components) in data.components.iter() {
+            // if component.last_changed().is_newer_than(
+            //     // Subtract 1 so that changes from the system where the index was updated are seen.
+            //     // The `is_newer_than` implementation assumes we don't care about those changes since
+            //     // "this" system is the one that made the change, but for indexing, we do care.
+            //     Tick::new(self.last_refresh_tick.get().wrapping_sub(1)),
+            //     data.ticks.this_run(),
+            // ) {
+            self.map.insert(&I::value(components), entity);
+            // }
         }
         self.last_refresh_tick = data.ticks.this_run();
     }
 }
 
-type ComponentsQuery<'w, 's, T> =
-    Query<'w, 's, (Entity, Ref<'static, <T as IndexInfo>::Component>)>;
+type ComponentsQuery<'w, 's, T> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        <<T as IndexInfo>::Components as ComponentTuple>::Refs<'static>,
+    ),
+    <<T as IndexInfo>::Components as ComponentTuple>::ChangedFilter,
+>;
 
 #[doc(hidden)]
 #[derive(SystemParam)]
 pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
     components: ComponentsQuery<'w, 's, I>,
-    removals: RemovedComponents<'w, 's, <I as IndexInfo>::Component>,
+    removals: StaticSystemParam<
+        'w,
+        's,
+        <<I as IndexInfo>::Components as ComponentTuple>::Removed<'static, 'static>,
+    >,
     ticks: SystemChangeTick,
 }
 
@@ -132,7 +145,8 @@ impl<I: IndexInfo> Default for NoStorage<I> {
 }
 
 impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
-    type RefreshData<'w, 's> = Query<'w, 's, (Entity, &'static I::Component)>;
+    type RefreshData<'w, 's> =
+        Query<'w, 's, (Entity, <I::Components as ComponentTuple>::Refs<'static>)>;
 
     fn lookup<'w, 's>(
         &mut self,
