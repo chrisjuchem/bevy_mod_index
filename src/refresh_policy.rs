@@ -96,6 +96,5 @@ impl IndexRefreshPolicy for ManualRefreshPolicy {
 /// by the index. It is automatically added to the app for each index with a [`IndexRefreshPolicy`]
 /// that has `REFRESH_EVERY_FRAME` set to true.
 pub fn refresh_index_system<I: IndexInfo>(mut idx: Index<I>) {
-    println!("refresh");
     idx.refresh();
 }
