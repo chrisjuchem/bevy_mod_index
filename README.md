@@ -123,6 +123,7 @@ over all components yourself)
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
 |--------------|--------------------------|
+| 0.13         | 0.4.0                    |
 | 0.12         | 0.3.0                    |
 | 0.11         | 0.2.0                    |
 | 0.10         | 0.1.0                    |

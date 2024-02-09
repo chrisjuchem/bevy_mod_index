@@ -1,11 +1,8 @@
-use bevy::math::Vec3Swizzles;
-use bevy::prelude::*;
-use bevy::sprite::MaterialMesh2dBundle;
-use bevy::utils::HashMap;
-use bevy_mod_index::prelude::*;
-use rand::rngs::ThreadRng;
-use rand::{seq::IteratorRandom, thread_rng, Rng};
 use std::f32::consts::PI;
+
+use bevy::{math::Vec3Swizzles, prelude::*, sprite::MaterialMesh2dBundle, utils::HashMap};
+use bevy_mod_index::prelude::*;
+use rand::{rngs::ThreadRng, seq::IteratorRandom, thread_rng, Rng};
 
 const N_BALLS: usize = 1000;
 const MAX_WIDTH: f32 = 640.;
@@ -99,7 +96,7 @@ fn setup(
     let size_range = 2..8;
     let mut mesh_map = HashMap::new();
     for x in size_range.clone() {
-        mesh_map.insert(x, meshes.add(shape::Circle::new(x as f32).into()));
+        mesh_map.insert(x, meshes.add(Circle::new(x as f32)));
     }
 
     let mut rng = thread_rng();
@@ -143,7 +140,7 @@ fn bounce(mut balls: Query<(&Transform, &mut Velocity, &Size)>) {
 fn update_colors(
     mut index: Index<RegionIndex>,
     colors: Res<Colors>,
-    click: Res<Input<MouseButton>>,
+    click: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut commands: Commands,
 ) {
