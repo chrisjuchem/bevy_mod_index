@@ -36,6 +36,15 @@ pub struct Index<'w, 's, I: IndexInfo + 'static> {
         StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>>,
 }
 
+/// Error returned by [`Index::lookup_single`] if there is not exactly one Entity with the
+/// requested value.
+pub enum UniquenessError {
+    /// There were no entities with the requested value.
+    NoEntities,
+    /// There was more than one entity with the requested value.
+    MultipleEntities,
+}
+
 #[doc(hidden)]
 /// Thanks Jon https://youtu.be/CWiz_RtA1Hw?t=815
 pub trait Captures<U> {}
@@ -61,13 +70,32 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
     /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
     ///
-    /// Panics if there is not exactly one `Entity` returned by the lookup.
-    pub fn lookup_single(&mut self, val: &I::Value) -> Entity {
+    /// Returns an error if there is not exactly one `Entity` returned by the lookup.
+    /// See [`Index::single`] for the panicking version.
+    pub fn lookup_single(&mut self, val: &I::Value) -> Result<Entity, UniquenessError> {
         let mut it = self.lookup(val);
         match (it.next(), it.next()) {
-            (None, _) => panic!("Expected 1 entity in index, found 0."),
-            (Some(e), None) => e,
-            (Some(_), Some(_)) => panic!("Expected 1 entity in index, found multiple."),
+            (None, _) => Err(UniquenessError::NoEntities),
+            (Some(e), None) => Ok(e),
+            (Some(_), Some(_)) => Err(UniquenessError::MultipleEntities),
+        }
+    }
+
+    /// Get the single entity with relevant components that evaluate to the given value
+    /// using [`I::value`][`IndexInfo::value`].
+    ///
+    /// Refreshes the index if it has not yet been refreshed in this system and the index's
+    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    ///
+    /// Panics if there is not exactly one `Entity` returned by the lookup.
+    /// See [`Index::lookup_single`] for the version that returns a result instead.
+    pub fn single(&mut self, val: &I::Value) -> Entity {
+        match self.lookup_single(val) {
+            Err(UniquenessError::NoEntities) => panic!("Expected 1 entity in index, found 0."),
+            Ok(e) => e,
+            Err(UniquenessError::MultipleEntities) => {
+                panic!("Expected 1 entity in index, found multiple.")
+            }
         }
     }
 
