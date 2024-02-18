@@ -184,22 +184,26 @@ where
         change_tick: Tick,
     ) -> Self::Item<'w2, 's2> {
         let mut idx = Index {
-            storage: <ResMut<'w, I::Storage>>::get_param(
-                &mut state.storage_state,
-                system_meta,
-                world,
-                change_tick,
-            ),
-            refresh_data: <StaticSystemParam<
-                'w,
-                's,
-                <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
-            > as SystemParam>::get_param(
-                &mut state.refresh_data_state,
-                system_meta,
-                world,
-                change_tick,
-            ),
+            storage: unsafe {
+                <ResMut<'w, I::Storage>>::get_param(
+                    &mut state.storage_state,
+                    system_meta,
+                    world,
+                    change_tick,
+                )
+            },
+            refresh_data: unsafe {
+                <StaticSystemParam<
+                    'w,
+                    's,
+                    <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
+                > as SystemParam>::get_param(
+                    &mut state.refresh_data_state,
+                    system_meta,
+                    world,
+                    change_tick,
+                )
+            },
         };
         if I::RefreshPolicy::REFRESH_WHEN_RUN {
             idx.refresh()
