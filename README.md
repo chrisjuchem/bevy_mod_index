@@ -3,7 +3,7 @@
 [![](https://img.shields.io/crates/v/bevy_mod_index)](https://crates.io/crates/bevy_mod_index)
 [![](https://docs.rs/bevy_mod_index/badge.svg)](https://docs.rs/bevy_mod_index/latest/bevy_mod_index)
 [![](https://img.shields.io/crates/d/bevy_mod_index)](https://crates.io/crates/bevy_mod_index)
-[![](https://img.shields.io/badge/Bevy%20version-v0.12.x-orange)](https://crates.io/crates/bevy/0.12.0)
+[![](https://img.shields.io/badge/Bevy%20version-v0.13.x-orange)](https://crates.io/crates/bevy/0.13.0)
 [![](https://img.shields.io/github/license/chrisjuchem/bevy_mod_index?color=blue)](https://github.com/chrisjuchem/bevy_mod_index/blob/main/LICENSE)
 [![](https://img.shields.io/github/stars/chrisjuchem/bevy_mod_index?color=green)](https://github.com/chrisjuchem/bevy_mod_index/stargazers)
 
@@ -66,15 +66,17 @@ index.
 You must specify:
 - the type of component to be indexed,
 - the type of value that you want to be able to use for lookups,
-- a function for calculating that value for a component, and
+- a function for calculating that value for a component,
 - how to store the relationship between an entity and the value calculated from 
-  its appropriate component.
+  its appropriate component, and
+- when the index should refresh itself with the latest data.
 ```rust
 struct NearOrigin {}
 impl IndexInfo for NearOrigin {
   type Component = Transform;
   type Value = bool;
   type Storage = HashmapStorage<Self>;
+  type RefreshPolicy = ConservativeRefrehPolicy;
 
   fn value(t: &Transform) -> bool {
     t.translation.length() < 5.0
@@ -106,19 +108,28 @@ fn count_players_and_enemies_near_spawn(
 }
 ```
 
-## Implementations
-`HashmapStorage` uses a custom `SystemParam` that updates the index whenever it is used.
-The update is done by using a query to loop over all components, and only reading the actual
-data/re-computing the index value when a component is changed since the last update. If the
-index is not used, it will not update, even if its system runs, which can be useful if you
-only need up-to-date data in certain circumstances (e.g. when the mouse is clicked) to save
-re-computing values for rapidly changing data.
+## Storage Implementations
+`HashmapStorage` uses a `Resource` to cache a mapping between `Entity`s and the values computed
+from their components. It uses a custom `SystemParam` in order to update itself when the index
+is used. This is a good default choice, especially when the number of `Entity`s returned by a
+`lookup` is expected to be just a small percentage of those in the entire query.
 
 `NoStorage`, as the name implies, does not store any index data. Instead, it loops over all
 data each time it is queried, computing the `value` function for each component, exactly like
 the first `move_living_players` example above. This option allows you to use the index API
 without incurring as much overhead as `HashmapStorage` (though still more than directly looping
-over all components yourself)
+over all components yourself).
+
+## Refresh Policies
+Refresh policies describe how often the index should check for component changes and update its
+internal storage.
+
+`ConservativeRefreshPolicy` is a good default that will never be out of date, but if your
+systems that use your `Index` always run every frame (and therefore will never miss a
+despawn/component removal), `SimpleRefreshPolicy` can be used instead to reduce some overhead.
+
+Other more specialized refresh policies can be found [in the docs](https://docs.rs/bevy_mod_index/latest/bevy_mod_index/refresh_policy/index.html),
+and you can also define your own by implementing the `IndexRefreshPolicy` trait.
 
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
@@ -157,16 +168,9 @@ I'd love to hear them. File an issue, or even better, reach out in the `bevy_mod
   - Indexes use a read-only query of their components to update the index before it is used.
     If you have a query that mutably access these components in the same system as an `Index`,
     you can [combine them into a `ParamSet`][ParamSet].
-- `lookup` returned entities which no longer exist/no longer have the relevant component.
-  - Currently, detection of removed entities and components relies on `RemovedComponents`,
-    which only has a 2-frame buffer. If no systems that use your index run within a frame
-    of a component or entity being removed, it will be missed. This means that run conditions
-    should generally be avoided, but including the `Index` in the condition may alleviate the
-    issue (though I have not tested this).
 
 ## Future work
 - Docs
-- Return an iterator of matching `Entity`s instead of a `HashSet`.
 - Cleanup removed components and despawned entities without needing to run every frame.
 - Option to update the index when components change instead of when the index is used.
   - Naively, requires engine support for custom `DerefMut` hooks, but this would likely
