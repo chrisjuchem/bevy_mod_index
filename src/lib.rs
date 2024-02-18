@@ -7,6 +7,7 @@
 //! a trait that you must implement on your own types to define the behavior of the index.
 
 #![warn(missing_docs)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 /// Main index logic.
 pub mod index;
