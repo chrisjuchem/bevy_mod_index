@@ -1,11 +1,11 @@
 use bevy::ecs::all_tuples;
-use bevy::ecs::query::ReadOnlyWorldQuery;
+use bevy::ecs::query::{QueryFilter, ReadOnlyQueryData};
 use bevy::ecs::system::ReadOnlySystemParam;
 use bevy::prelude::{Changed, Component, RemovedComponents};
 
 pub trait ComponentTuple {
-    type Refs<'a>: for<'r> ReadOnlyWorldQuery<Item<'r> = Self::Refs<'r>>; // QueryData
-    type ChangedFilter: ReadOnlyWorldQuery; // QueryFilter
+    type Refs<'a>: for<'r> ReadOnlyQueryData<Item<'r> = Self::Refs<'r>>;
+    type ChangedFilter: QueryFilter;
     type Removed<'w, 's>: for<'a, 'b> ReadOnlySystemParam<Item<'a, 'b> = Self::Removed<'a, 'b>>
         + RemovedComponentIter;
 }
