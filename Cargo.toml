@@ -24,3 +24,6 @@ rand = "0.8.5"
 [dev-dependencies.bevy]
 version = "0.13"
 features = ["dynamic_linking"]
+
+[features]
+reflect = []
