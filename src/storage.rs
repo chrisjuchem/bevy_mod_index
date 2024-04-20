@@ -6,8 +6,8 @@ use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
-#[cfg(feature="reflect")]
-use bevy::{reflect::Reflect, ecs::prelude::ReflectResource};
+#[cfg(feature = "reflect")]
+use bevy::reflect::Reflect;
 
 /// Defines the internal storage for an index, which is stored as a [`Resource`].
 ///
@@ -128,6 +128,7 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
 #[cfg_attr(feature = "reflect", derive(Reflect))]
 #[cfg_attr(feature = "reflect", reflect(Resource))]
 pub struct NoStorage<I: IndexInfo> {
+    #[cfg_attr(feature = "reflect", reflect(ignore))]
     phantom: PhantomData<fn() -> I>,
 }
 impl<I: IndexInfo> Default for NoStorage<I> {

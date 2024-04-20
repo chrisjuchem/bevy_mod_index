@@ -2,8 +2,8 @@ use bevy::utils::hashbrown::hash_set::Iter;
 use bevy::utils::{HashMap, HashSet};
 use std::hash::Hash;
 
-#[cfg(feature="reflect")]
-use bevy::{reflect::Reflect, ecs::prelude::ReflectResource};
+#[cfg(feature = "reflect")]
+use bevy::reflect::Reflect;
 
 /// Map where a key can have multiple values, but a value can only exist for one key at a time.
 /// Re-inserting a value is a no-op if it already exists under the same key, otherwise the value is

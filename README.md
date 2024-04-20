@@ -10,6 +10,19 @@
 A Rust crate that allows efficient querying for components by their values in
 the game engine [Bevy].
 
+## Compatability
+| Bevy Version | `bevy_mod_index` Version |
+|--------------|--------------------------|
+| 0.13         | 0.4.x                    |
+| 0.12         | 0.3.0                    |
+| 0.11         | 0.2.0                    |
+| 0.10         | 0.1.0                    |
+
+## Features
+| Feature name | Description                                    |
+|--------------|------------------------------------------------|
+| `reflect`    | Adds reflect derives to the storage resources. |
+
 ## Use Cases
 It is quite common to want to write code in a system that only operates on 
 components that have a certain value, e.g.:
@@ -131,18 +144,16 @@ despawn/component removal), `SimpleRefreshPolicy` can be used instead to reduce 
 Other more specialized refresh policies can be found [in the docs](https://docs.rs/bevy_mod_index/latest/bevy_mod_index/refresh_policy/index.html),
 and you can also define your own by implementing the `IndexRefreshPolicy` trait.
 
-## Compatability
-| Bevy Version | `bevy_mod_index` Version |
-|--------------|--------------------------|
-| 0.13         | 0.4.0                    |
-| 0.12         | 0.3.0                    |
-| 0.11         | 0.2.0                    |
-| 0.10         | 0.1.0                    |
+## Reflection
+Reflection for the storage resources can be enabled by selecting the optional `reflect` crate
+feature. This is mainly useful for inspecting the underlying storage with `bevy-inspector-egui`.
 
-## Features
-| Feature name | Description                                    |
-|--------------|------------------------------------------------|
-| `reflect`    | Adds reflect derives to the storage resources. |
+In order for the resources to appear in the inspector, you will need to manually register the
+storage for each index, e.g. `app.register_type::<HashmapStorage<NearOrigin>>();` Make sure that
+you also derive `Reflect` for your `IndexInfo` type and any associated components/values.
+
+Note: You should not rely on the internal structure of these resources, since they may change across
+releases.
 
 ## API Stability
 Consider the API to be extremely unstable as I experiment with what names and patterns feel
