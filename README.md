@@ -139,6 +139,11 @@ and you can also define your own by implementing the `IndexRefreshPolicy` trait.
 | 0.11         | 0.2.0                    |
 | 0.10         | 0.1.0                    |
 
+## Features
+| Feature name | Description                                    |
+|--------------|------------------------------------------------|
+| `reflect`    | Adds reflect derives to the storage resources. |
+
 ## API Stability
 Consider the API to be extremely unstable as I experiment with what names and patterns feel
 most natural and expressive, and also work on supporting new features.
