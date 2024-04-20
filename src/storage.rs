@@ -6,6 +6,9 @@ use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
+#[cfg(feature="reflect")]
+use bevy::{reflect::Reflect, ecs::prelude::ReflectResource};
+
 /// Defines the internal storage for an index, which is stored as a [`Resource`].
 ///
 /// You should not need this for normal use beyond including the `Storage` type
@@ -44,6 +47,8 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
 
 /// [`IndexStorage`] implementation that maintains a HashMap from values to [`Entity`]s whose
 /// components have that value.
+#[cfg_attr(feature = "reflect", derive(Reflect))]
+#[cfg_attr(feature = "reflect", reflect(Resource))]
 #[derive(Resource)]
 pub struct HashmapStorage<I: IndexInfo> {
     map: UniqueMultiMap<I::Value, Entity>,
@@ -120,6 +125,8 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
 /// This storage never needs to be refreshed, so [`ManualRefreshPolicy`](crate::refresh_policy::ManualRefreshPolicy)
 /// is usually the best choice for index definitions that use `NoStorage`.
 #[derive(Resource)]
+#[cfg_attr(feature = "reflect", derive(Reflect))]
+#[cfg_attr(feature = "reflect", reflect(Resource))]
 pub struct NoStorage<I: IndexInfo> {
     phantom: PhantomData<fn() -> I>,
 }
