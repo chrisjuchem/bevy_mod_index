@@ -38,6 +38,7 @@ pub struct Index<'w, 's, I: IndexInfo + 'static> {
 
 /// Error returned by [`Index::lookup_single`] if there is not exactly one Entity with the
 /// requested value.
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum UniquenessError {
     /// There were no entities with the requested value.
     NoEntities,
@@ -303,12 +304,9 @@ mod test {
             .add_systems(Startup, add_some_numbers)
             .add_systems(Update, |mut idx: Index<Number>| {
                 let num = Number(20);
-                assert_eq!(
-                    vec![idx.lookup_single(&num)],
-                    idx.lookup(&num).collect::<Vec<_>>()
-                );
+                assert_eq!(vec![idx.single(&num)], idx.lookup(&num).collect::<Vec<_>>());
             })
-            .run()
+            .run();
     }
     #[test]
     #[should_panic]
@@ -316,9 +314,9 @@ mod test {
         App::new()
             .add_systems(Startup, add_some_numbers)
             .add_systems(Update, |mut idx: Index<Number>| {
-                idx.lookup_single(&Number(55));
+                idx.single(&Number(55));
             })
-            .run()
+            .run();
     }
     #[test]
     #[should_panic]
@@ -326,9 +324,9 @@ mod test {
         App::new()
             .add_systems(Startup, add_some_numbers)
             .add_systems(Update, |mut idx: Index<Number>| {
-                idx.lookup_single(&Number(10));
+                idx.single(&Number(10));
             })
-            .run()
+            .run();
     }
 
     #[test]
