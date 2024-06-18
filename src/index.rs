@@ -154,17 +154,25 @@ where
             > as SystemParam>::init_state(world, system_meta),
         }
     }
-    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        <ResMut<'w, I::Storage> as SystemParam>::new_archetype(
-            &mut state.storage_state,
-            archetype,
-            system_meta,
-        );
-        <StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>> as SystemParam>::new_archetype(
-            &mut state.refresh_data_state,
-            archetype,
-            system_meta,
-        );
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        unsafe {
+            <ResMut<'w, I::Storage> as SystemParam>::new_archetype(
+                &mut state.storage_state,
+                archetype,
+                system_meta,
+            );
+            <StaticSystemParam<
+                'w,
+                's,
+                <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
+            > as SystemParam>::new_archetype(
+                &mut state.refresh_data_state, archetype, system_meta
+            );
+        }
     }
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         <ResMut<'w, I::Storage> as SystemParam>::apply(
@@ -452,7 +460,7 @@ mod test {
         app.update();
 
         // Clear update schedule
-        app.world
+        app.world_mut()
             .resource_mut::<Schedules>()
             .insert(Schedule::new(Update));
         app.update();
@@ -460,7 +468,7 @@ mod test {
         app.add_systems(Update, despawner(30))
             // Detect component removed this earlier this frame
             .add_systems(Last, checker(30, 0))
-            // Detect component removed multiple frames ago stage
+            // Detect component removed multiple frames ago
             .add_systems(Last, checker(20, 0));
         app.update();
     }
