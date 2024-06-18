@@ -1,6 +1,8 @@
 use std::f32::consts::PI;
 
-use bevy::{math::Vec3Swizzles, prelude::*, sprite::MaterialMesh2dBundle, utils::HashMap};
+use bevy::{
+    color::palettes, math::Vec3Swizzles, prelude::*, sprite::MaterialMesh2dBundle, utils::HashMap,
+};
 use bevy_mod_index::prelude::*;
 use rand::{rngs::ThreadRng, seq::IteratorRandom, thread_rng, Rng};
 
@@ -64,33 +66,36 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut colors: ResMut<Colors>,
+    mut color_materials: ResMut<Colors>,
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    for color in [
-        Color::AQUAMARINE,
-        Color::BISQUE,
-        Color::BLUE,
-        Color::CRIMSON,
-        Color::DARK_GRAY,
-        Color::DARK_GREEN,
-        Color::FUCHSIA,
-        Color::GOLD,
-        Color::INDIGO,
-        Color::PINK,
-        Color::SALMON,
-        Color::PURPLE,
-        Color::OLIVE,
-        Color::MAROON,
-        Color::GREEN,
-        Color::SILVER,
-        Color::VIOLET,
-        Color::WHITE,
-        Color::YELLOW_GREEN,
-        Color::ORANGE,
-    ] {
-        colors.0.push(materials.add(ColorMaterial::from(color)));
+    let colors: [Color; 20] = [
+        palettes::css::AQUAMARINE.into(),
+        palettes::css::BISQUE.into(),
+        palettes::css::BLUE.into(),
+        palettes::css::CRIMSON.into(),
+        palettes::css::DARK_GRAY.into(),
+        palettes::css::DARK_GREEN.into(),
+        palettes::css::FUCHSIA.into(),
+        palettes::css::GOLD.into(),
+        palettes::css::INDIGO.into(),
+        palettes::css::PINK.into(),
+        palettes::css::SALMON.into(),
+        palettes::css::PURPLE.into(),
+        palettes::css::OLIVE.into(),
+        palettes::css::MAROON.into(),
+        palettes::css::GREEN.into(),
+        palettes::css::SILVER.into(),
+        palettes::css::VIOLET.into(),
+        palettes::css::WHITE.into(),
+        palettes::css::YELLOW_GREEN.into(),
+        palettes::css::ORANGE.into(),
+    ];
+    for color in colors {
+        color_materials
+            .0
+            .push(materials.add(ColorMaterial::from(color)));
     }
 
     let size_range = 2..8;
@@ -106,7 +111,7 @@ fn setup(
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: mesh_map.get(&size).unwrap().clone().into(),
-                material: colors.random(&mut rng),
+                material: color_materials.random(&mut rng),
                 transform: Transform::from_xyz(
                     (rng.gen::<f32>() - 0.5) * MAX_WIDTH,
                     (rng.gen::<f32>() - 0.5) * MAX_HEIGHT,
