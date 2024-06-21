@@ -13,10 +13,23 @@ Bevy version updated to `0.14`.
 - Added derives for `Eq`, `PartialEq`, `Debug`, `Copy`, and `Clone` to
   `UniquenessError`.
 
+### Changed
+- `HashmapStorage` now uses Observers instead of `RemovedComponents` to
+  know when to clean up stale entries.
+- `IndexRefreshPolicy` has been changed from a trait to an enum because
+  the switch to Observers should eliminate the need for complex
+  refresh policy configurations.
+- The `RefereshPolicy` associated type of `IndexInfo` is now a constant
+  called `REFRESH_POLICY`.
+
+### Removed
+- Removed concrete implementations of the old `IndexRefreshPolicy` trait
+  such as `ConservativeRefreshPolicy`.
+
 ## [0.4.1] - 2024-04-20
 
 ### Added
-- Added `reflect` crate feature with `Reflect` derives for sturage types.
+- Added `reflect` crate feature with `Reflect` derives for storage types.
 
 ## [0.4.0] - 2024-02-17
 
