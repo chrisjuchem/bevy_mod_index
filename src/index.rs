@@ -144,6 +144,9 @@ where
                     .expect(&format!("Can't find schedule `{label:?}`."))
                     .add_systems(refresh_index_system::<I>);
             }
+            if let Some(obs) = I::Storage::removal_observer() {
+                world.spawn(obs);
+            }
         }
         IndexFetchState {
             storage_state: <ResMut<'w, I::Storage> as SystemParam>::init_state(world, system_meta),

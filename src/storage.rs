@@ -41,6 +41,11 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
 
     /// Unconditionally refresh this storage with the latest state from the world.
     fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>);
+
+    /// Observer to be run whenever a component tracked by this Index is removed.
+    ///
+    /// No observer will be registered if this returns `None`.
+    fn removal_observer() -> Option<Observer<OnRemove, I::Component>>;
 }
 
 // ==================================================================
@@ -53,6 +58,7 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
 pub struct HashmapStorage<I: IndexInfo> {
     map: UniqueMultiMap<I::Value, Entity>,
     last_refresh_tick: Tick,
+    removed_entities: Vec<Entity>,
 }
 
 impl<I: IndexInfo> Default for HashmapStorage<I> {
@@ -60,6 +66,7 @@ impl<I: IndexInfo> Default for HashmapStorage<I> {
         Self {
             map: Default::default(),
             last_refresh_tick: Tick::new(0),
+            removed_entities: Vec::with_capacity(16),
         }
     }
 }
@@ -85,9 +92,10 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     }
 
     fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
-        for entity in data.removals.read() {
+        for entity in self.removed_entities.iter() {
             self.map.remove(&entity);
         }
+        self.removed_entities.clear();
         for (entity, component) in &data.components {
             if component.last_changed().is_newer_than(
                 // Subtract 1 so that changes from the system where the index was updated are seen.
@@ -101,6 +109,14 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         }
         self.last_refresh_tick = data.ticks.this_run();
     }
+
+    fn removal_observer() -> Option<Observer<OnRemove, I::Component>> {
+        Some(Observer::new(
+            |trigger: Trigger<_, _>, mut storage: ResMut<HashmapStorage<I>>| {
+                storage.removed_entities.push(trigger.entity());
+            },
+        ))
+    }
 }
 
 type ComponentsQuery<'w, 's, T> =
@@ -110,7 +126,6 @@ type ComponentsQuery<'w, 's, T> =
 #[derive(SystemParam)]
 pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
     components: ComponentsQuery<'w, 's, I>,
-    removals: RemovedComponents<'w, 's, <I as IndexInfo>::Component>,
     ticks: SystemChangeTick,
 }
 
@@ -154,4 +169,8 @@ impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
     fn refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
 
     fn force_refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
+
+    fn removal_observer() -> Option<Observer<OnRemove, I::Component>> {
+        None
+    }
 }
