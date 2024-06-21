@@ -89,7 +89,7 @@ impl IndexInfo for NearOrigin {
   type Component = Transform;
   type Value = bool;
   type Storage = HashmapStorage<Self>;
-  type RefreshPolicy = ConservativeRefrehPolicy;
+  type REFRESH_POLICY = IndexRefreshPolicy::WhenRun;
 
   fn value(t: &Transform) -> bool {
     t.translation.length() < 5.0
@@ -123,9 +123,9 @@ fn count_players_and_enemies_near_spawn(
 
 ## Storage Implementations
 `HashmapStorage` uses a `Resource` to cache a mapping between `Entity`s and the values computed
-from their components. It uses a custom `SystemParam` in order to update itself when the index
-is used. This is a good default choice, especially when the number of `Entity`s returned by a
-`lookup` is expected to be just a small percentage of those in the entire query.
+from their components. It uses a custom `SystemParam` to fetch the data that it needs to update
+itself when needed. This is a good default choice, especially when the number of `Entity`s returned
+by a `lookup` is expected to be just a small percentage of those in the entire query.
 
 `NoStorage`, as the name implies, does not store any index data. Instead, it loops over all
 data each time it is queried, computing the `value` function for each component, exactly like
@@ -134,15 +134,13 @@ without incurring as much overhead as `HashmapStorage` (though still more than d
 over all components yourself).
 
 ## Refresh Policies
-Refresh policies describe how often the index should check for component changes and update its
-internal storage.
+Indexes using `HashmapStorage` must be periodically `refresh`ed for them to be able to accurately
+reflect the status of components as they are added, changed, and removed. Specifying an
+`IndexRefreshPolicy` configures the index to automatically refresh itself for you with one of
+several different timings.
 
-`ConservativeRefreshPolicy` is a good default that will never be out of date, but if your
-systems that use your `Index` always run every frame (and therefore will never miss a
-despawn/component removal), `SimpleRefreshPolicy` can be used instead to reduce some overhead.
-
-Other more specialized refresh policies can be found [in the docs](https://docs.rs/bevy_mod_index/latest/bevy_mod_index/refresh_policy/index.html),
-and you can also define your own by implementing the `IndexRefreshPolicy` trait.
+`IndexRefreshPolicy::WhenRun` is a good default if you're not sure which refresh policy to use, but
+other policies can be found [in the docs](https://docs.rs/bevy_mod_index/latest/bevy_mod_index/refresh_policy/enum.IndexRefreshPolicy.html).
 
 ## Reflection
 Reflection for the storage resources can be enabled by selecting the optional `reflect` crate
@@ -187,7 +185,6 @@ I'd love to hear them. File an issue, or even better, reach out in the `bevy_mod
 
 ## Future work
 - Docs
-- Cleanup removed components and despawned entities without needing to run every frame.
 - Option to update the index when components change instead of when the index is used.
   - Naively, requires engine support for custom `DerefMut` hooks, but this would likely
     add overhead even when indexes aren't used. Other solutions may be possible.
