@@ -19,8 +19,8 @@ pub trait IndexInfo: Sized + 'static {
     type Value: Send + Sync + Hash + Eq + Clone;
     /// The type of storage to use for the index.
     type Storage: IndexStorage<Self>;
-    /// The [`IndexRefreshPolicy`] to use to automatically refresh the index.
-    type RefreshPolicy: IndexRefreshPolicy;
+    /// Defines when the index should be automatically refreshed.
+    const REFRESH_POLICY: IndexRefreshPolicy;
 
     /// The function used by [`Index::lookup`] to determine the value of a component.
     ///
@@ -38,6 +38,7 @@ pub struct Index<'w, 's, I: IndexInfo + 'static> {
 
 /// Error returned by [`Index::lookup_single`] if there is not exactly one Entity with the
 /// requested value.
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum UniquenessError {
     /// There were no entities with the requested value.
     NoEntities,
@@ -56,11 +57,14 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// using [`I::value`][`IndexInfo::value`].
     ///
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
-    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    /// [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`] is [`WhenUsed`][`IndexRefreshPolicy::WhenUsed`].
     pub fn lookup<'i, 'self_>(
         &'self_ mut self,
         val: &'i I::Value,
     ) -> impl Iterator<Item = Entity> + Captures<(&'w (), &'s (), &'self_ (), &'i ())> {
+        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenUsed {
+            self.refresh();
+        }
         self.storage.lookup(val, &mut self.refresh_data)
     }
 
@@ -68,7 +72,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// using [`I::value`][`IndexInfo::value`].
     ///
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
-    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    /// [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`] is [`WhenUsed`][`IndexRefreshPolicy::WhenUsed`].
     ///
     /// Returns an error if there is not exactly one `Entity` returned by the lookup.
     /// See [`Index::single`] for the panicking version.
@@ -85,7 +89,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// using [`I::value`][`IndexInfo::value`].
     ///
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
-    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    /// [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`] is [`WhenUsed`][`IndexRefreshPolicy::WhenUsed`].
     ///
     /// Panics if there is not exactly one `Entity` returned by the lookup.
     /// See [`Index::lookup_single`] for the version that returns a result instead.
@@ -104,7 +108,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     ///
     /// Note: 1 [`Tick`] = 1 system, not 1 frame.
     ///
-    /// This may or may not be necessary to call manually depending on the particular [`IndexRefreshPolicy`] used.
+    /// This is called automatically at the time specified by the index's [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`].
     pub fn refresh(&mut self) {
         self.storage.refresh(&mut self.refresh_data)
     }
@@ -135,13 +139,15 @@ where
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         if !world.contains_resource::<I::Storage>() {
             world.init_resource::<I::Storage>();
-            if I::RefreshPolicy::REFRESH_EVERY_FRAME {
-                let label = I::RefreshPolicy::schedule();
+            if I::REFRESH_POLICY == IndexRefreshPolicy::EachFrame {
                 world
                     .resource_mut::<Schedules>()
-                    .get_mut(label.clone())
-                    .expect(&format!("Can't find schedule `{label:?}`."))
+                    .get_mut(First)
+                    .expect("Can't find `First` schedule.")
                     .add_systems(refresh_index_system::<I>);
+            }
+            if let Some(obs) = I::Storage::removal_observer() {
+                world.spawn(obs);
             }
         }
         IndexFetchState {
@@ -153,17 +159,25 @@ where
             > as SystemParam>::init_state(world, system_meta),
         }
     }
-    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        <ResMut<'w, I::Storage> as SystemParam>::new_archetype(
-            &mut state.storage_state,
-            archetype,
-            system_meta,
-        );
-        <StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>> as SystemParam>::new_archetype(
-            &mut state.refresh_data_state,
-            archetype,
-            system_meta,
-        );
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        unsafe {
+            <ResMut<'w, I::Storage> as SystemParam>::new_archetype(
+                &mut state.storage_state,
+                archetype,
+                system_meta,
+            );
+            <StaticSystemParam<
+                'w,
+                's,
+                <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
+            > as SystemParam>::new_archetype(
+                &mut state.refresh_data_state, archetype, system_meta
+            );
+        }
     }
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         <ResMut<'w, I::Storage> as SystemParam>::apply(
@@ -205,7 +219,7 @@ where
                 )
             },
         };
-        if I::RefreshPolicy::REFRESH_WHEN_RUN {
+        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenRun {
             idx.refresh()
         }
         idx
@@ -232,7 +246,7 @@ mod test {
         type Component = Self;
         type Value = Self;
         type Storage = HashmapStorage<Self>;
-        type RefreshPolicy = ConservativeRefreshPolicy;
+        const REFRESH_POLICY: IndexRefreshPolicy = IndexRefreshPolicy::WhenRun;
 
         fn value(c: &Self::Component) -> Self::Value {
             c.clone()
@@ -303,12 +317,9 @@ mod test {
             .add_systems(Startup, add_some_numbers)
             .add_systems(Update, |mut idx: Index<Number>| {
                 let num = Number(20);
-                assert_eq!(
-                    vec![idx.lookup_single(&num)],
-                    idx.lookup(&num).collect::<Vec<_>>()
-                );
+                assert_eq!(vec![idx.single(&num)], idx.lookup(&num).collect::<Vec<_>>());
             })
-            .run()
+            .run();
     }
     #[test]
     #[should_panic]
@@ -316,9 +327,9 @@ mod test {
         App::new()
             .add_systems(Startup, add_some_numbers)
             .add_systems(Update, |mut idx: Index<Number>| {
-                idx.lookup_single(&Number(55));
+                idx.single(&Number(55));
             })
-            .run()
+            .run();
     }
     #[test]
     #[should_panic]
@@ -326,9 +337,9 @@ mod test {
         App::new()
             .add_systems(Startup, add_some_numbers)
             .add_systems(Update, |mut idx: Index<Number>| {
-                idx.lookup_single(&Number(10));
+                idx.single(&Number(10));
             })
-            .run()
+            .run();
     }
 
     #[test]
@@ -454,7 +465,7 @@ mod test {
         app.update();
 
         // Clear update schedule
-        app.world
+        app.world_mut()
             .resource_mut::<Schedules>()
             .insert(Schedule::new(Update));
         app.update();
@@ -462,7 +473,7 @@ mod test {
         app.add_systems(Update, despawner(30))
             // Detect component removed this earlier this frame
             .add_systems(Last, checker(30, 0))
-            // Detect component removed multiple frames ago stage
+            // Detect component removed multiple frames ago
             .add_systems(Last, checker(20, 0));
         app.update();
     }
