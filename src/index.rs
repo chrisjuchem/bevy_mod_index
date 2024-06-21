@@ -19,8 +19,8 @@ pub trait IndexInfo: Sized + 'static {
     type Value: Send + Sync + Hash + Eq + Clone;
     /// The type of storage to use for the index.
     type Storage: IndexStorage<Self>;
-    /// The [`IndexRefreshPolicy`] to use to automatically refresh the index.
-    type RefreshPolicy: IndexRefreshPolicy;
+    /// Defines when the index should be automatically refreshed.
+    const REFRESH_POLICY: IndexRefreshPolicy;
 
     /// The function used by [`Index::lookup`] to determine the value of a component.
     ///
@@ -57,7 +57,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// using [`I::value`][`IndexInfo::value`].
     ///
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
-    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    /// [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`] is [`WhenUsed`][`IndexRefreshPolicy::WhenUsed`].
     pub fn lookup<'i, 'self_>(
         &'self_ mut self,
         val: &'i I::Value,
@@ -69,7 +69,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// using [`I::value`][`IndexInfo::value`].
     ///
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
-    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    /// [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`] is [`WhenUsed`][`IndexRefreshPolicy::WhenUsed`].
     ///
     /// Returns an error if there is not exactly one `Entity` returned by the lookup.
     /// See [`Index::single`] for the panicking version.
@@ -86,7 +86,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     /// using [`I::value`][`IndexInfo::value`].
     ///
     /// Refreshes the index if it has not yet been refreshed in this system and the index's
-    /// [`IndexRefreshPolicy`] has `REFRESH_WHEN_USED=true`.
+    /// [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`] is [`WhenUsed`][`IndexRefreshPolicy::WhenUsed`].
     ///
     /// Panics if there is not exactly one `Entity` returned by the lookup.
     /// See [`Index::lookup_single`] for the version that returns a result instead.
@@ -105,7 +105,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
     ///
     /// Note: 1 [`Tick`] = 1 system, not 1 frame.
     ///
-    /// This may or may not be necessary to call manually depending on the particular [`IndexRefreshPolicy`] used.
+    /// This is called automatically at the time specified by the index's [`REFRESH_POLICY`][`IndexInfo::REFRESH_POLICY`].
     pub fn refresh(&mut self) {
         self.storage.refresh(&mut self.refresh_data)
     }
@@ -136,12 +136,11 @@ where
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         if !world.contains_resource::<I::Storage>() {
             world.init_resource::<I::Storage>();
-            if I::RefreshPolicy::REFRESH_EVERY_FRAME {
-                let label = I::RefreshPolicy::schedule();
+            if I::REFRESH_POLICY == IndexRefreshPolicy::EachFrame {
                 world
                     .resource_mut::<Schedules>()
-                    .get_mut(label.clone())
-                    .expect(&format!("Can't find schedule `{label:?}`."))
+                    .get_mut(First)
+                    .expect("Can't find `First` schedule.")
                     .add_systems(refresh_index_system::<I>);
             }
             if let Some(obs) = I::Storage::removal_observer() {
@@ -217,7 +216,7 @@ where
                 )
             },
         };
-        if I::RefreshPolicy::REFRESH_WHEN_RUN {
+        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenRun {
             idx.refresh()
         }
         idx
@@ -244,7 +243,7 @@ mod test {
         type Component = Self;
         type Value = Self;
         type Storage = HashmapStorage<Self>;
-        type RefreshPolicy = ConservativeRefreshPolicy;
+        const REFRESH_POLICY: IndexRefreshPolicy = IndexRefreshPolicy::WhenRun;
 
         fn value(c: &Self::Component) -> Self::Value {
             c.clone()

@@ -79,7 +79,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         val: &I::Value,
         data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> impl Iterator<Item = Entity> {
-        if I::RefreshPolicy::REFRESH_WHEN_USED {
+        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenUsed {
             self.refresh(data);
         }
         self.map.get(val).map(|e| *e)
@@ -137,8 +137,8 @@ pub struct HashmapStorageRefreshData<'w, 's, I: IndexInfo> {
 /// using an index. This allows you to use the `Index` interface without actually using any extra
 /// memory.
 ///
-/// This storage never needs to be refreshed, so [`ManualRefreshPolicy`](crate::refresh_policy::ManualRefreshPolicy)
-/// is usually the best choice for index definitions that use `NoStorage`.
+/// This storage never needs to be refreshed, so the [`Manual`](IndexRefreshPolicy::Manual) refresh
+/// policy is usually the best choice for index definitions that use `NoStorage`.
 #[derive(Resource)]
 #[cfg_attr(feature = "reflect", derive(Reflect))]
 #[cfg_attr(feature = "reflect", reflect(Resource))]
