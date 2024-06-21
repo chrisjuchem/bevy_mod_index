@@ -62,6 +62,9 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
         &'self_ mut self,
         val: &'i I::Value,
     ) -> impl Iterator<Item = Entity> + Captures<(&'w (), &'s (), &'self_ (), &'i ())> {
+        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenUsed {
+            self.refresh();
+        }
         self.storage.lookup(val, &mut self.refresh_data)
     }
 

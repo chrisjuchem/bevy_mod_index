@@ -21,6 +21,9 @@ Bevy version updated to `0.14`.
   refresh policy configurations.
 - The `RefereshPolicy` associated type of `IndexInfo` is now a constant
   called `REFRESH_POLICY`.
+- Calling `lookup` directly on a storage resource no longer refreshes the
+  storage if refresh policy is `WhenUsed`. This was moved up to `Index`'s
+  `refresh` method.
 
 ### Removed
 - Removed concrete implementations of the old `IndexRefreshPolicy` trait

@@ -77,11 +77,8 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     fn lookup<'w, 's>(
         &mut self,
         val: &I::Value,
-        data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
+        _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> impl Iterator<Item = Entity> {
-        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenUsed {
-            self.refresh(data);
-        }
         self.map.get(val).map(|e| *e)
     }
 
