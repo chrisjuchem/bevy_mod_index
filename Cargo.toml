@@ -14,7 +14,7 @@ edition = "2021"
 opt-level = 3
 
 [dependencies.bevy]
-version = "0.14.0-rc.3"
+version = "0.14.0-rc.4"
 default-features = false
 
 # Dependencies for examples
@@ -22,7 +22,7 @@ default-features = false
 rand = "0.8.5"
 
 [dev-dependencies.bevy]
-version = "0.14.0-rc.2"
+version = "0.14.0-rc.4"
 features = ["dynamic_linking"]
 
 [features]
