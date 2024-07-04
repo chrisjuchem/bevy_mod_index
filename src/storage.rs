@@ -1,5 +1,4 @@
 use crate::index::IndexInfo;
-use crate::refresh_policy::IndexRefreshPolicy;
 use crate::unique_multimap::UniqueMultiMap;
 use bevy::ecs::component::Tick;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
