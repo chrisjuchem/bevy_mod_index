@@ -115,7 +115,7 @@ fn count_players_and_enemies_near_spawn(
     }
     if let Ok(()) = enemies.get(entity) {
       enemy_count += 1;
-f    }
+    }
   }
   
   println!("There are {} players and {} enemies near spawn!", player_count, enemy_count)
