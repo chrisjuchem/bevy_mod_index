@@ -7,6 +7,8 @@ use crate::index::{Index, IndexInfo};
 /// [`Component`][bevy::ecs::component::Component]s as they are added, changed, and removed.
 pub enum IndexRefreshPolicy {
     /// Refresh the index whenever a system with an [`Index`] argument is run.
+    ///
+    /// This is a good default for most use cases.
     WhenRun,
     /// Refresh the index the first time [`lookup`][crate::index::Index::lookup] is called in each system.
     ///
