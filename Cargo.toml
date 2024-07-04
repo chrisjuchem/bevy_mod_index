@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mod_index"
-version = "0.4.1"
+version = "0.5.0"
 description = "Allows using indexes to efficiently query for components by their values in the game engine Bevy."
 keywords = [ "index", "indexes", "indices", "bevy", "bevyengine"]
 categories = [ "game-development", "data-structures" ]
@@ -14,7 +14,7 @@ edition = "2021"
 opt-level = 3
 
 [dependencies.bevy]
-version = "0.14.0-rc.4"
+version = "0.14"
 default-features = false
 
 # Dependencies for examples
@@ -22,7 +22,7 @@ default-features = false
 rand = "0.8.5"
 
 [dev-dependencies.bevy]
-version = "0.14.0-rc.4"
+version = "0.14"
 features = ["dynamic_linking"]
 
 [features]
