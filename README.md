@@ -90,7 +90,7 @@ impl IndexInfo for NearOrigin {
   type Component = Transform;
   type Value = bool;
   type Storage = HashmapStorage<Self>;
-  type REFRESH_POLICY = IndexRefreshPolicy::WhenRun;
+  const REFRESH_POLICY: IndexRefreshPolicy = IndexRefreshPolicy::WhenRun;
 
   fn value(t: &Transform) -> bool {
     t.translation.length() < 5.0
