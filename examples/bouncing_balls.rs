@@ -16,9 +16,9 @@ struct Velocity(Vec2);
 struct Size(f32);
 
 #[derive(Resource, Default)]
-struct Colors(Vec<Handle<ColorMaterial>>);
+struct Colors(Vec<MeshMaterial2d<ColorMaterial>>);
 impl Colors {
-    fn random(&self, rng: &mut ThreadRng) -> Handle<ColorMaterial> {
+    fn random(&self, rng: &mut ThreadRng) -> MeshMaterial2d<ColorMaterial> {
         self.0.iter().choose(rng).unwrap().clone()
     }
 }
@@ -95,7 +95,7 @@ fn setup(
     for color in colors {
         color_materials
             .0
-            .push(materials.add(ColorMaterial::from(color)));
+            .push(MeshMaterial2d(materials.add(ColorMaterial::from(color))));
     }
 
     let size_range = 2..8;

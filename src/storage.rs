@@ -44,7 +44,7 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
     /// Observer to be run whenever a component tracked by this Index is removed.
     ///
     /// No observer will be registered if this returns `None`.
-    fn removal_observer() -> Option<Observer<OnRemove, I::Component>>;
+    fn removal_observer() -> Option<Observer>;
 }
 
 // ==================================================================
@@ -106,9 +106,9 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         self.last_refresh_tick = data.ticks.this_run();
     }
 
-    fn removal_observer() -> Option<Observer<OnRemove, I::Component>> {
+    fn removal_observer() -> Option<Observer> {
         Some(Observer::new(
-            |trigger: Trigger<_, _>, mut storage: ResMut<HashmapStorage<I>>| {
+            |trigger: Trigger<OnRemove, I::Component>, mut storage: ResMut<HashmapStorage<I>>| {
                 storage.removed_entities.push(trigger.entity());
             },
         ))
@@ -166,7 +166,7 @@ impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
 
     fn force_refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
 
-    fn removal_observer() -> Option<Observer<OnRemove, I::Component>> {
+    fn removal_observer() -> Option<Observer> {
         None
     }
 }
