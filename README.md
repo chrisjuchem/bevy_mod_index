@@ -19,6 +19,17 @@ the game engine [Bevy].
 | 0.11         | 0.2.0                    |
 | 0.10         | 0.1.0                    |
 
+### Bevy Release Candidates
+
+I do not publish release candidates for this crate corresponding to Bevy's,
+but I do try to keep the main branch up to date with the latest RC. When there
+are active Bevy RCs, the table below will include git commits you can use with
+each RC version.
+
+| Bevy Version | `bevy_mod_index` SHA |
+|--------------|----------------------|
+| 0.15.0-rc.1  | `1f79681`            |
+
 ## Features
 | Feature name | Description                                    |
 |--------------|------------------------------------------------|
