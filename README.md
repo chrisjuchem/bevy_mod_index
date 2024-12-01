@@ -13,6 +13,7 @@ the game engine [Bevy].
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
 |--------------|--------------------------|
+| 0.15         | 0.6.x                    |
 | 0.14         | 0.5.x                    |
 | 0.13         | 0.4.x                    |
 | 0.12         | 0.3.0                    |
@@ -28,7 +29,6 @@ each RC version.
 
 | Bevy Version | `bevy_mod_index` SHA |
 |--------------|----------------------|
-| 0.15.0-rc.1  | `1f79681`            |
 
 ## Features
 | Feature name | Description                                    |

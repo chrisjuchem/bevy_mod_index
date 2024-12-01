@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.6.0] - 2024-12-01
+
+Bevy version updated to `0.14`.
+
+### Changed
+- Type signature of `IndexStorage::removal_observer` updated to match
+  [bevy's change to the `Observer` type](https://github.com/bevyengine/bevy/pull/15151).
+
 ## [0.5.0] - 2024-07-04
 
 Bevy version updated to `0.14`.
