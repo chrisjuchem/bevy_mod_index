@@ -27,8 +27,9 @@ but I do try to keep the main branch up to date with the latest RC. When there
 are active Bevy RCs, the table below will include git commits you can use with
 each RC version.
 
-| Bevy Version | `bevy_mod_index` SHA |
-|--------------|----------------------|
+| Bevy Version | `bevy_mod_index` SHA                     |
+|--------------|------------------------------------------|
+| 0.16.0-rc.2  | a22bf8a2b8b6e460140e9e77b564d61c2fe1f1c4 |
 
 ## Features
 | Feature name | Description                                    |
