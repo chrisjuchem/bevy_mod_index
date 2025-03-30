@@ -1,7 +1,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    color::palettes, math::Vec3Swizzles, prelude::*, sprite::MaterialMesh2dBundle, utils::HashMap,
+    color::palettes,
+    math::Vec3Swizzles,
+    platform_support::collections::hash_map::HashMap,
+    prelude::*,
 };
 use bevy_mod_index::prelude::*;
 use rand::{rngs::ThreadRng, seq::IteratorRandom, thread_rng, Rng};
@@ -68,7 +71,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut color_materials: ResMut<Colors>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let colors: [Color; 20] = [
         palettes::css::AQUAMARINE.into(),
@@ -99,9 +102,9 @@ fn setup(
     }
 
     let size_range = 2..8;
-    let mut mesh_map = HashMap::new();
+    let mut mesh_map = HashMap::<_, Mesh2d>::default();
     for x in size_range.clone() {
-        mesh_map.insert(x, meshes.add(Circle::new(x as f32)));
+        mesh_map.insert(x, Mesh2d(meshes.add(Circle::new(x as f32))));
     }
 
     let mut rng = thread_rng();
@@ -109,16 +112,13 @@ fn setup(
         let size = rng.gen_range(size_range.clone());
 
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: mesh_map.get(&size).unwrap().clone().into(),
-                material: color_materials.random(&mut rng),
-                transform: Transform::from_xyz(
-                    (rng.gen::<f32>() - 0.5) * MAX_WIDTH,
-                    (rng.gen::<f32>() - 0.5) * MAX_HEIGHT,
-                    z as f32,
-                ),
-                ..default()
-            },
+            mesh_map.get(&size).unwrap().clone(),
+            color_materials.random(&mut rng),
+            Transform::from_xyz(
+                (rng.gen::<f32>() - 0.5) * MAX_WIDTH,
+                (rng.gen::<f32>() - 0.5) * MAX_HEIGHT,
+                z as f32,
+            ),
             Velocity(Vec2::from_angle(rng.gen::<f32>() * 2. * PI) * (rng.gen::<f32>() * 3. + 0.5)),
             Size(size as f32),
         ));
@@ -146,11 +146,11 @@ fn update_colors(
     mut index: Index<RegionIndex>,
     colors: Res<Colors>,
     click: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut commands: Commands,
 ) {
     if click.just_pressed(MouseButton::Left) {
-        if let Some(mut pos) = windows.single().cursor_position() {
+        if let Some(mut pos) = window.cursor_position() {
             pos.x -= MAX_WIDTH;
             pos.y -= MAX_HEIGHT;
             // convert screen space to world space

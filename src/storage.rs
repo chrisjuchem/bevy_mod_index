@@ -41,6 +41,11 @@ pub trait IndexStorage<I: IndexInfo>: Resource + Default {
     /// Unconditionally refresh this storage with the latest state from the world.
     fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>);
 
+    /// Observer to be run whenever a component tracked by this Index is inserted.
+    ///
+    /// No observer will be registered if this returns `None`.
+    fn insertion_observer() -> Option<Observer>;
+
     /// Observer to be run whenever a component tracked by this Index is removed.
     ///
     /// No observer will be registered if this returns `None`.
@@ -78,7 +83,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         val: &I::Value,
         _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> impl Iterator<Item = Entity> {
-        self.map.get(val).map(|e| *e)
+        self.map.get(val).copied()
     }
 
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
@@ -89,7 +94,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
 
     fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
         for entity in self.removed_entities.iter() {
-            self.map.remove(&entity);
+            self.map.remove(entity);
         }
         self.removed_entities.clear();
         for (entity, component) in &data.components {
@@ -106,10 +111,34 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         self.last_refresh_tick = data.ticks.this_run();
     }
 
+    fn insertion_observer() -> Option<Observer> {
+        if I::REFRESH_POLICY.is_when_inserted() {
+            Some(Observer::new(
+                |trigger: Trigger<OnInsert, I::Component>,
+                 mut storage: ResMut<HashmapStorage<I>>,
+                 components: Query<&I::Component>| {
+                    let target = trigger.target();
+                    let component = components
+                        .get(target)
+                        .expect("Component that was just inserted is missing!");
+
+                    println!("INSERTION");
+                    storage.map.insert(&I::value(component), target);
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
     fn removal_observer() -> Option<Observer> {
         Some(Observer::new(
             |trigger: Trigger<OnRemove, I::Component>, mut storage: ResMut<HashmapStorage<I>>| {
-                storage.removed_entities.push(trigger.entity());
+                if I::REFRESH_POLICY.is_when_inserted() {
+                    storage.map.remove(&trigger.target());
+                } else {
+                    storage.removed_entities.push(trigger.target());
+                }
             },
         ))
     }
@@ -165,6 +194,10 @@ impl<I: IndexInfo> IndexStorage<I> for NoStorage<I> {
     fn refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
 
     fn force_refresh<'w, 's>(&mut self, _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {}
+
+    fn insertion_observer() -> Option<Observer> {
+        None
+    }
 
     fn removal_observer() -> Option<Observer> {
         None

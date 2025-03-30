@@ -2,7 +2,13 @@ use crate::refresh_policy::{refresh_index_system, IndexRefreshPolicy};
 use crate::storage::IndexStorage;
 use bevy::ecs::archetype::Archetype;
 use bevy::ecs::component::Tick;
-use bevy::ecs::system::{ReadOnlySystemParam, StaticSystemParam, SystemMeta, SystemParam};
+use bevy::ecs::system::{
+    ReadOnlySystemParam,
+    RunSystemOnce,
+    StaticSystemParam,
+    SystemMeta,
+    SystemParam,
+};
 use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::prelude::*;
 use std::hash::Hash;
@@ -62,7 +68,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
         &'self_ mut self,
         val: &'i I::Value,
     ) -> impl Iterator<Item = Entity> + Captures<(&'w (), &'s (), &'self_ (), &'i ())> {
-        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenUsed {
+        if I::REFRESH_POLICY.is_when_used() {
             self.refresh();
         }
         self.storage.lookup(val, &mut self.refresh_data)
@@ -139,13 +145,20 @@ where
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         if !world.contains_resource::<I::Storage>() {
             world.init_resource::<I::Storage>();
-            if I::REFRESH_POLICY == IndexRefreshPolicy::EachFrame {
+            if I::REFRESH_POLICY.is_each_frame() {
                 world
                     .resource_mut::<Schedules>()
                     .get_mut(First)
                     .expect("Can't find `First` schedule.")
                     .add_systems(refresh_index_system::<I>);
             }
+
+            if let Some(obs) = I::Storage::insertion_observer() {
+                world.spawn(obs);
+                // Catch up on missed data
+                world.run_system_once(refresh_index_system::<I>).unwrap();
+            }
+
             if let Some(obs) = I::Storage::removal_observer() {
                 world.spawn(obs);
             }
@@ -219,7 +232,7 @@ where
                 )
             },
         };
-        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenRun {
+        if I::REFRESH_POLICY.is_when_run() {
             idx.refresh()
         }
         idx
@@ -260,8 +273,8 @@ mod test {
         commands.spawn(Number(30));
     }
 
-    fn checker(number: usize, amount: usize) -> impl Fn(Index<Number>) {
-        move |mut idx: Index<Number>| {
+    fn checker<I: IndexInfo<Value = Number>>(number: usize, amount: usize) -> impl Fn(Index<I>) {
+        move |mut idx: Index<I>| {
             let num = &Number(number);
             let set = idx.lookup(num);
             let n = set.count();
@@ -304,10 +317,10 @@ mod test {
     fn test_index_lookup() {
         App::new()
             .add_systems(Startup, add_some_numbers)
-            .add_systems(Update, checker(10, 2))
-            .add_systems(Update, checker(20, 1))
-            .add_systems(Update, checker(30, 1))
-            .add_systems(Update, checker(40, 0))
+            .add_systems(Update, checker::<Number>(10, 2))
+            .add_systems(Update, checker::<Number>(20, 1))
+            .add_systems(Update, checker::<Number>(30, 1))
+            .add_systems(Update, checker::<Number>(40, 0))
             .run();
     }
 
@@ -346,16 +359,16 @@ mod test {
     fn test_changing_values() {
         App::new()
             .add_systems(Startup, add_some_numbers)
-            .add_systems(PreUpdate, checker(10, 2))
-            .add_systems(PreUpdate, checker(20, 1))
-            .add_systems(PreUpdate, checker(30, 1))
+            .add_systems(PreUpdate, checker::<Number>(10, 2))
+            .add_systems(PreUpdate, checker::<Number>(20, 1))
+            .add_systems(PreUpdate, checker::<Number>(30, 1))
             .add_systems(Update, adder_all(5))
-            .add_systems(PostUpdate, checker(10, 0))
-            .add_systems(PostUpdate, checker(20, 0))
-            .add_systems(PostUpdate, checker(30, 0))
-            .add_systems(PostUpdate, checker(15, 2))
-            .add_systems(PostUpdate, checker(25, 1))
-            .add_systems(PostUpdate, checker(35, 1))
+            .add_systems(PostUpdate, checker::<Number>(10, 0))
+            .add_systems(PostUpdate, checker::<Number>(20, 0))
+            .add_systems(PostUpdate, checker::<Number>(30, 0))
+            .add_systems(PostUpdate, checker::<Number>(15, 2))
+            .add_systems(PostUpdate, checker::<Number>(25, 1))
+            .add_systems(PostUpdate, checker::<Number>(35, 1))
             .run();
     }
 
@@ -363,11 +376,11 @@ mod test {
     fn test_changing_with_index() {
         App::new()
             .add_systems(Startup, add_some_numbers)
-            .add_systems(PreUpdate, checker(10, 2))
-            .add_systems(PreUpdate, checker(20, 1))
+            .add_systems(PreUpdate, checker::<Number>(10, 2))
+            .add_systems(PreUpdate, checker::<Number>(20, 1))
             .add_systems(Update, adder_some(10, 10))
-            .add_systems(PostUpdate, checker(10, 0))
-            .add_systems(PostUpdate, checker(20, 3))
+            .add_systems(PostUpdate, checker::<Number>(10, 0))
+            .add_systems(PostUpdate, checker::<Number>(20, 3))
             .run();
     }
 
@@ -406,7 +419,7 @@ mod test {
 
     fn remover(n: usize) -> impl Fn(Index<Number>, Commands) {
         move |mut idx: Index<Number>, mut commands: Commands| {
-            for entity in idx.lookup(&Number(n)).into_iter() {
+            for entity in idx.lookup(&Number(n)) {
                 commands.get_entity(entity).unwrap().remove::<Number>();
             }
         }
@@ -414,7 +427,7 @@ mod test {
 
     fn despawner(n: usize) -> impl Fn(Index<Number>, Commands) {
         move |mut idx: Index<Number>, mut commands: Commands| {
-            for entity in idx.lookup(&Number(n)).into_iter() {
+            for entity in idx.lookup(&Number(n)) {
                 commands.get_entity(entity).unwrap().despawn();
             }
         }
@@ -428,14 +441,14 @@ mod test {
     fn test_removal_detection() {
         App::new()
             .add_systems(Startup, add_some_numbers)
-            .add_systems(PreUpdate, checker(20, 1))
-            .add_systems(PreUpdate, checker(30, 1))
+            .add_systems(PreUpdate, checker::<Number>(20, 1))
+            .add_systems(PreUpdate, checker::<Number>(30, 1))
             .add_systems(Update, remover(20))
             .add_systems(PostUpdate, (next_frame, remover(30)).chain())
             // Detect component removed this earlier this frame
-            .add_systems(Last, checker(30, 0))
+            .add_systems(Last, checker::<Number>(30, 0))
             // Detect component removed after we ran last stage
-            .add_systems(Last, checker(20, 0))
+            .add_systems(Last, checker::<Number>(20, 0))
             .run();
     }
 
@@ -443,14 +456,14 @@ mod test {
     fn test_despawn_detection() {
         App::new()
             .add_systems(Startup, add_some_numbers)
-            .add_systems(PreUpdate, checker(20, 1))
-            .add_systems(PreUpdate, checker(30, 1))
+            .add_systems(PreUpdate, checker::<Number>(20, 1))
+            .add_systems(PreUpdate, checker::<Number>(30, 1))
             .add_systems(Update, despawner(20))
             .add_systems(PostUpdate, (next_frame, despawner(30)).chain())
             // Detect component removed this earlier this frame
-            .add_systems(Last, checker(30, 0))
+            .add_systems(Last, checker::<Number>(30, 0))
             // Detect component removed after we ran last stage
-            .add_systems(Last, checker(20, 0))
+            .add_systems(Last, checker::<Number>(20, 0))
             .run();
     }
 
@@ -458,8 +471,8 @@ mod test {
     fn test_despawn_detection_2_frames() {
         let mut app = App::new();
         app.add_systems(Startup, add_some_numbers)
-            .add_systems(PostStartup, checker(20, 1))
-            .add_systems(PostStartup, checker(30, 1));
+            .add_systems(PostStartup, checker::<Number>(20, 1))
+            .add_systems(PostStartup, checker::<Number>(30, 1));
 
         app.add_systems(Update, despawner(20));
         app.update();
@@ -472,9 +485,44 @@ mod test {
 
         app.add_systems(Update, despawner(30))
             // Detect component removed this earlier this frame
-            .add_systems(Last, checker(30, 0))
+            .add_systems(Last, checker::<Number>(30, 0))
             // Detect component removed multiple frames ago
-            .add_systems(Last, checker(20, 0));
+            .add_systems(Last, checker::<Number>(20, 0));
+        app.update();
+    }
+
+    #[test]
+    fn test_insertion_observer() {
+        struct ObserverIndex;
+        impl IndexInfo for ObserverIndex {
+            type Component = Number;
+            type Value = Number;
+            type Storage = HashmapStorage<Self>;
+            const REFRESH_POLICY: IndexRefreshPolicy = IndexRefreshPolicy::WhenInserted;
+            fn value(c: &Self::Component) -> Self::Value {
+                c.clone()
+            }
+        }
+
+        fn replacer(diff: usize) -> impl Fn(Query<(Entity, &Number)>, Commands) {
+            move |q: Query<(Entity, &Number)>, mut commands: Commands| {
+                for (e, n) in q {
+                    commands.entity(e).insert(Number(n.0 + diff));
+                }
+            }
+        }
+
+        let mut app = App::new();
+        app.add_systems(Startup, add_some_numbers)
+            .add_systems(PostStartup, checker::<ObserverIndex>(10, 2))
+            .add_systems(PostStartup, checker::<ObserverIndex>(20, 1))
+            .add_systems(PostStartup, checker::<ObserverIndex>(30, 1));
+        app.add_systems(First, remover(20));
+        app.add_systems(PreUpdate, checker::<ObserverIndex>(20, 0));
+        app.add_systems(Update, replacer(5));
+        app.add_systems(PostUpdate, checker::<ObserverIndex>(15, 2));
+        app.add_systems(PostUpdate, checker::<ObserverIndex>(35, 1));
+
         app.update();
     }
 }

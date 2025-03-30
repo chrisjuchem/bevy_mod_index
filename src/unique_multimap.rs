@@ -1,5 +1,7 @@
-use bevy::utils::hashbrown::hash_set::Iter;
-use bevy::utils::{HashMap, HashSet};
+use bevy::platform_support::collections::{
+    hash_map::HashMap,
+    hash_set::{HashSet, Iter},
+};
 use std::hash::Hash;
 
 #[cfg(feature = "reflect")]
@@ -62,16 +64,14 @@ where
             self.purge_from_forward(old_k, v, "remove");
         }
 
-        return maybe_old_k;
+        maybe_old_k
     }
 
     // Removes v from k's set, removing the set completely if it would be empty
     // Panics if k is not in the forward map.
     fn purge_from_forward(&mut self, k: &K, v: &V, fn_name: &str) {
-        let old_set = self.map.get_mut(k).expect(&format!(
-            "{}: Cached key from rev_map was not present in forward map!",
-            fn_name,
-        ));
+        let old_set = self.map.get_mut(k).unwrap_or_else(|| panic!("{}: Cached key from rev_map was not present in forward map!",
+            fn_name));
         match old_set.len() {
             1 => {
                 self.map.remove(k);
@@ -84,6 +84,7 @@ where
 }
 
 trait HashMapExt<K, V> {
+    #[expect(dead_code)]
     fn get_or_insert_default(&mut self, k: &K) -> &V;
     fn get_mut_or_insert_default(&mut self, k: &K) -> &mut V;
 }

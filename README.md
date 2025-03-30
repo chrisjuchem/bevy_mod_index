@@ -151,6 +151,8 @@ reflect the status of components as they are added, changed, and removed. Specif
 `IndexRefreshPolicy` configures the index to automatically refresh itself for you with one of
 several different timings.
 
+Indexes for immutable components should use `IndexRefreshPolicy::WhenInserted`, which uses observers
+to update the index and avoid checking if refreshes are necessary every frame. For mutable components,
 `IndexRefreshPolicy::WhenRun` is a good default if you're not sure which refresh policy to use, but
 other policies can be found [in the docs](https://docs.rs/bevy_mod_index/latest/bevy_mod_index/refresh_policy/enum.IndexRefreshPolicy.html).
 
