@@ -7,12 +7,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_mod_index::prelude::*;
-use rand::{
-    rngs::ThreadRng,
-    seq::IteratorRandom,
-    thread_rng,
-    Rng,
-};
+use rand::{rngs::ThreadRng, seq::IteratorRandom, thread_rng, Rng};
 
 const N_BALLS: usize = 1000;
 const MAX_WIDTH: f32 = 640.;

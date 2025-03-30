@@ -19,8 +19,15 @@ pub enum IndexRefreshPolicy {
     /// Refresh the index once during the [`First`][bevy::app::First]
     /// [`Schedule`][bevy::ecs::schedule::Schedule].
     ///
-    /// To refresh during a different schedule, you can manually add the [`refresh_index_system`].
+    /// To refresh during a different schedule, you should use the [`Manual`][`IndexRefreshPolicy::Manual`]
+    /// refresh policy and manually add the [`refresh_index_system`] to the desired schedule.
     EachFrame,
+    /// Use [`Observers`][bevy::ecs::observer::Observer] to refresh the index on a per-entity basis
+    /// as components are inserted and removed.
+    ///
+    /// This is best used with [`Immutable`][bevy::ecs::component::Immutable] components, as otherwise,
+    /// component mutations will be missed unless you refresh the index manually.
+    WhenInserted,
     /// Never refresh the [`Index`] automatically.
     ///
     /// You must call [`refresh`][crate::index::Index::refresh] manually if any components are

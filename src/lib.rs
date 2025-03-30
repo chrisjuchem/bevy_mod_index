@@ -8,6 +8,7 @@
 
 #![warn(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
+#![allow(clippy::needless_lifetimes)]
 
 /// Main index logic.
 pub mod index;
