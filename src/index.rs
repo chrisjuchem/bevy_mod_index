@@ -419,7 +419,7 @@ mod test {
 
     fn remover(n: usize) -> impl Fn(Index<Number>, Commands) {
         move |mut idx: Index<Number>, mut commands: Commands| {
-            for entity in idx.lookup(&Number(n)).into_iter() {
+            for entity in idx.lookup(&Number(n)) {
                 commands.get_entity(entity).unwrap().remove::<Number>();
             }
         }
@@ -427,7 +427,7 @@ mod test {
 
     fn despawner(n: usize) -> impl Fn(Index<Number>, Commands) {
         move |mut idx: Index<Number>, mut commands: Commands| {
-            for entity in idx.lookup(&Number(n)).into_iter() {
+            for entity in idx.lookup(&Number(n)) {
                 commands.get_entity(entity).unwrap().despawn();
             }
         }

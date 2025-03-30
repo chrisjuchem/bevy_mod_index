@@ -84,7 +84,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
         val: &I::Value,
         _data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>,
     ) -> impl Iterator<Item = Entity> {
-        self.map.get(val).map(|e| *e)
+        self.map.get(val).copied()
     }
 
     fn refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
@@ -95,7 +95,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
 
     fn force_refresh<'w, 's>(&mut self, data: &mut StaticSystemParam<Self::RefreshData<'w, 's>>) {
         for entity in self.removed_entities.iter() {
-            self.map.remove(&entity);
+            self.map.remove(entity);
         }
         self.removed_entities.clear();
         for (entity, component) in &data.components {

@@ -71,7 +71,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut color_materials: ResMut<Colors>,
 ) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     let colors: [Color; 20] = [
         palettes::css::AQUAMARINE.into(),
