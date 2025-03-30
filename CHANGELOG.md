@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.7.0] - 
+
+Bevy version updated to `0.16`.
+
+### Added
+- Added a new `RefereshPolicy`: `WhenInserted`. Uses observers to update
+  the index as components are replaced rather than all at once later.
+  Intended to be used with immutable components.
+
+### Changed
+- Internal equality checks have been replaced by `const` functions to
+  allow for better optimizations.
+
 ## [0.6.0] - 2024-12-01
 
 Bevy version updated to `0.14`.
