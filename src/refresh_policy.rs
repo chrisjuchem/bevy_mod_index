@@ -35,6 +35,26 @@ pub enum IndexRefreshPolicy {
     Manual,
 }
 
+// These impls are needed because PartialEq is not const.
+impl IndexRefreshPolicy {
+    pub(crate) const fn is_when_run(&self) -> bool {
+        matches!(self, IndexRefreshPolicy::WhenRun)
+    }
+    pub(crate) const fn is_when_used(&self) -> bool {
+        matches!(self, IndexRefreshPolicy::WhenUsed)
+    }
+    pub(crate) const fn is_each_frame(&self) -> bool {
+        matches!(self, IndexRefreshPolicy::EachFrame)
+    }
+    pub(crate) const fn is_when_inserted(&self) -> bool {
+        matches!(self, IndexRefreshPolicy::WhenInserted)
+    }
+    #[expect(dead_code)]
+    pub(crate) const fn is_manual(&self) -> bool {
+        matches!(self, IndexRefreshPolicy::Manual)
+    }
+}
+
 /// A [`System`][bevy::ecs::system::System] that refreshes the index every frame.
 ///
 /// This system can be useful to ensure that all removed entities are reflected properly

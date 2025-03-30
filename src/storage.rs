@@ -1,5 +1,4 @@
 use crate::index::IndexInfo;
-use crate::refresh_policy::IndexRefreshPolicy;
 use crate::unique_multimap::UniqueMultiMap;
 use bevy::ecs::component::Tick;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
@@ -113,7 +112,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     }
 
     fn insertion_observer() -> Option<Observer> {
-        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenInserted {
+        if I::REFRESH_POLICY.is_when_inserted() {
             Some(Observer::new(
                 |trigger: Trigger<OnInsert, I::Component>,
                  mut storage: ResMut<HashmapStorage<I>>,

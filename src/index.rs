@@ -68,7 +68,7 @@ impl<'w, 's, I: IndexInfo> Index<'w, 's, I> {
         &'self_ mut self,
         val: &'i I::Value,
     ) -> impl Iterator<Item = Entity> + Captures<(&'w (), &'s (), &'self_ (), &'i ())> {
-        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenUsed {
+        if I::REFRESH_POLICY.is_when_used() {
             self.refresh();
         }
         self.storage.lookup(val, &mut self.refresh_data)
@@ -145,7 +145,7 @@ where
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         if !world.contains_resource::<I::Storage>() {
             world.init_resource::<I::Storage>();
-            if I::REFRESH_POLICY == IndexRefreshPolicy::EachFrame {
+            if I::REFRESH_POLICY.is_each_frame() {
                 world
                     .resource_mut::<Schedules>()
                     .get_mut(First)
@@ -232,7 +232,7 @@ where
                 )
             },
         };
-        if I::REFRESH_POLICY == IndexRefreshPolicy::WhenRun {
+        if I::REFRESH_POLICY.is_when_run() {
             idx.refresh()
         }
         idx
