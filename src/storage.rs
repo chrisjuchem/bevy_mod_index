@@ -109,7 +109,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     fn removal_observer() -> Option<Observer> {
         Some(Observer::new(
             |trigger: Trigger<OnRemove, I::Component>, mut storage: ResMut<HashmapStorage<I>>| {
-                storage.removed_entities.push(trigger.entity());
+                storage.removed_entities.push(trigger.target());
             },
         ))
     }

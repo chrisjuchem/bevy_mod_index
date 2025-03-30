@@ -1,5 +1,7 @@
-use bevy::utils::hashbrown::hash_set::Iter;
-use bevy::utils::{HashMap, HashSet};
+use bevy::platform_support::collections::{
+    hash_map::HashMap,
+    hash_set::{HashSet, Iter},
+};
 use std::hash::Hash;
 
 #[cfg(feature = "reflect")]
@@ -84,6 +86,7 @@ where
 }
 
 trait HashMapExt<K, V> {
+    #[expect(dead_code)]
     fn get_or_insert_default(&mut self, k: &K) -> &V;
     fn get_mut_or_insert_default(&mut self, k: &K) -> &mut V;
 }
