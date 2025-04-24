@@ -3,7 +3,7 @@
 [![](https://img.shields.io/crates/v/bevy_mod_index)](https://crates.io/crates/bevy_mod_index)
 [![](https://docs.rs/bevy_mod_index/badge.svg)](https://docs.rs/bevy_mod_index/latest/bevy_mod_index)
 [![](https://img.shields.io/crates/d/bevy_mod_index)](https://crates.io/crates/bevy_mod_index)
-[![](https://img.shields.io/badge/Bevy%20version-v0.14.x-orange)](https://crates.io/crates/bevy/0.14.0)
+[![](https://img.shields.io/badge/Bevy%20version-v0.16.x-orange)](https://crates.io/crates/bevy/0.16.0)
 [![](https://img.shields.io/github/license/chrisjuchem/bevy_mod_index?color=blue)](https://github.com/chrisjuchem/bevy_mod_index/blob/main/LICENSE)
 [![](https://img.shields.io/github/stars/chrisjuchem/bevy_mod_index?color=green)](https://github.com/chrisjuchem/bevy_mod_index/stargazers)
 
@@ -13,6 +13,7 @@ the game engine [Bevy].
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
 |--------------|--------------------------|
+| 0.16         | 0.7.x                    |
 | 0.15         | 0.6.x                    |
 | 0.14         | 0.5.x                    |
 | 0.13         | 0.4.x                    |
@@ -23,13 +24,12 @@ the game engine [Bevy].
 ### Bevy Release Candidates
 
 I do not publish release candidates for this crate corresponding to Bevy's,
-but I do try to keep the main branch up to date with the latest RC. When there
+but I do try to ensure that the main branch is compatible with at least RC. When there
 are active Bevy RCs, the table below will include git commits you can use with
 each RC version.
 
 | Bevy Version | `bevy_mod_index` SHA                     |
 |--------------|------------------------------------------|
-| 0.16.0-rc.2  | a22bf8a2b8b6e460140e9e77b564d61c2fe1f1c4 |
 
 ## Features
 | Feature name | Description                                    |

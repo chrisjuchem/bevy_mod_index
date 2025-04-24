@@ -1,4 +1,4 @@
-use bevy::platform_support::collections::{
+use bevy::platform::collections::{
     hash_map::HashMap,
     hash_set::{HashSet, Iter},
 };
@@ -70,8 +70,12 @@ where
     // Removes v from k's set, removing the set completely if it would be empty
     // Panics if k is not in the forward map.
     fn purge_from_forward(&mut self, k: &K, v: &V, fn_name: &str) {
-        let old_set = self.map.get_mut(k).unwrap_or_else(|| panic!("{}: Cached key from rev_map was not present in forward map!",
-            fn_name));
+        let old_set = self.map.get_mut(k).unwrap_or_else(|| {
+            panic!(
+                "{}: Cached key from rev_map was not present in forward map!",
+                fn_name
+            )
+        });
         match old_set.len() {
             1 => {
                 self.map.remove(k);

@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes,
     math::Vec3Swizzles,
-    platform_support::collections::hash_map::HashMap,
+    platform::collections::hash_map::HashMap,
     prelude::*,
 };
 use bevy_mod_index::prelude::*;
