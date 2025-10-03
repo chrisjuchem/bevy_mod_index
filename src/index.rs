@@ -1,7 +1,7 @@
 use crate::refresh_policy::{refresh_index_system, IndexRefreshPolicy};
 use crate::storage::IndexStorage;
-use bevy::ecs::archetype::Archetype;
 use bevy::ecs::component::Tick;
+use bevy::ecs::query::FilteredAccessSet;
 use bevy::ecs::system::{
     ReadOnlySystemParam,
     RunSystemOnce,
@@ -142,7 +142,7 @@ where
 {
     type State = IndexFetchState<'static, 'static, I>;
     type Item<'_w, '_s> = Index<'_w, '_s, I>;
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         if !world.contains_resource::<I::Storage>() {
             world.init_resource::<I::Storage>();
             if I::REFRESH_POLICY.is_each_frame() {
@@ -164,33 +164,32 @@ where
             }
         }
         IndexFetchState {
-            storage_state: <ResMut<'w, I::Storage> as SystemParam>::init_state(world, system_meta),
+            storage_state: <ResMut<'w, I::Storage> as SystemParam>::init_state(world),
             refresh_data_state: <StaticSystemParam<
                 'w,
                 's,
                 <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
-            > as SystemParam>::init_state(world, system_meta),
+            > as SystemParam>::init_state(world),
         }
     }
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &Archetype,
+    fn init_access(
+        state: &Self::State,
         system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
     ) {
-        unsafe {
-            <ResMut<'w, I::Storage> as SystemParam>::new_archetype(
-                &mut state.storage_state,
-                archetype,
-                system_meta,
-            );
-            <StaticSystemParam<
-                'w,
-                's,
-                <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>,
-            > as SystemParam>::new_archetype(
-                &mut state.refresh_data_state, archetype, system_meta
-            );
-        }
+        <ResMut<'w, I::Storage> as SystemParam>::init_access(
+            &state.storage_state,
+            system_meta,
+            component_access_set,
+            world,
+        );
+        <StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>> as SystemParam>::init_access(
+            &state.refresh_data_state,
+            system_meta,
+            component_access_set,
+            world,
+        );
     }
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         <ResMut<'w, I::Storage> as SystemParam>::apply(
