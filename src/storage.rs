@@ -1,6 +1,6 @@
 use crate::index::IndexInfo;
 use crate::unique_multimap::UniqueMultiMap;
-use bevy::ecs::component::Tick;
+use bevy::ecs::change_detection::Tick;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
 use bevy::prelude::*;
 use std::marker::PhantomData;

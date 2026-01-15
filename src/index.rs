@@ -1,6 +1,6 @@
 use crate::refresh_policy::{refresh_index_system, IndexRefreshPolicy};
 use crate::storage::IndexStorage;
-use bevy::ecs::component::Tick;
+use bevy::ecs::change_detection::Tick;
 use bevy::ecs::query::FilteredAccessSet;
 use bevy::ecs::system::{
     ReadOnlySystemParam,
