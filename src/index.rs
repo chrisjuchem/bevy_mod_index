@@ -8,6 +8,7 @@ use bevy::ecs::system::{
     StaticSystemParam,
     SystemMeta,
     SystemParam,
+    SystemParamValidationError,
 };
 use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::prelude::*;
@@ -172,6 +173,7 @@ where
             > as SystemParam>::init_state(world),
         }
     }
+
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -191,6 +193,7 @@ where
             world,
         );
     }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         <ResMut<'w, I::Storage> as SystemParam>::apply(
             &mut state.storage_state,
@@ -203,12 +206,13 @@ where
             world,
         );
     }
+
     unsafe fn get_param<'w2, 's2>(
         state: &'s2 mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w2>,
         change_tick: Tick,
-    ) -> Self::Item<'w2, 's2> {
+    ) -> Result<Self::Item<'w2, 's2>, SystemParamValidationError> {
         let mut idx = Index {
             storage: unsafe {
                 <ResMut<'w, I::Storage>>::get_param(
@@ -216,7 +220,7 @@ where
                     system_meta,
                     world,
                     change_tick,
-                )
+                )?
             },
             refresh_data: unsafe {
                 <StaticSystemParam<
@@ -228,15 +232,16 @@ where
                     system_meta,
                     world,
                     change_tick,
-                )
+                )?
             },
         };
         if I::REFRESH_POLICY.is_when_run() {
             idx.refresh()
         }
-        idx
+        Ok(idx)
     }
 }
+
 unsafe impl<'w, 's, I: IndexInfo + 'static> ReadOnlySystemParam for Index<'w, 's, I>
 where
     ResMut<'w, I::Storage>: ReadOnlySystemParam,

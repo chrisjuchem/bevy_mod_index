@@ -1,6 +1,7 @@
 use crate::index::IndexInfo;
 use crate::unique_multimap::UniqueMultiMap;
 use bevy::ecs::change_detection::Tick;
+use bevy::ecs::component::Mutable;
 use bevy::ecs::system::{StaticSystemParam, SystemChangeTick, SystemParam};
 use bevy::prelude::*;
 use std::marker::PhantomData;
@@ -17,7 +18,7 @@ use bevy::reflect::Reflect;
 /// This crate provides the following storage implementations:
 ///
 /// [`HashmapStorage`], [`NoStorage`]
-pub trait IndexStorage<I: IndexInfo>: Resource + Default {
+pub trait IndexStorage<I: IndexInfo>: Resource<Mutability = Mutable> + Default {
     /// [`SystemParam`] that is fetched alongside this storage [`Resource`] when
     /// an [`Index`][crate::index::Index] is included in a system.
     ///
