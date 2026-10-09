@@ -1,14 +1,8 @@
 use crate::refresh_policy::{refresh_index_system, IndexRefreshPolicy};
 use crate::storage::IndexStorage;
 use bevy::ecs::change_detection::Tick;
-use bevy::ecs::query::FilteredAccessSet;
 use bevy::ecs::system::{
-    ReadOnlySystemParam,
-    RunSystemOnce,
-    StaticSystemParam,
-    SystemMeta,
-    SystemParam,
-    SystemParamValidationError,
+    ReadOnlySystemParam, RunSystemOnce, StaticSystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError
 };
 use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::prelude::*;
@@ -177,19 +171,19 @@ where
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
         <ResMut<'w, I::Storage> as SystemParam>::init_access(
             &state.storage_state,
             system_meta,
-            component_access_set,
+            system_access,
             world,
         );
         <StaticSystemParam<'w, 's, <I::Storage as IndexStorage<I>>::RefreshData<'static, 'static>> as SystemParam>::init_access(
             &state.refresh_data_state,
             system_meta,
-            component_access_set,
+            system_access,
             world,
         );
     }

@@ -115,7 +115,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
     fn insertion_observer() -> Option<Observer> {
         if I::REFRESH_POLICY.is_when_inserted() {
             Some(Observer::new(
-                |insertion: On<Insert, I::Component>,
+                |insertion: On<Insert<I::Component>>,
                  mut storage: ResMut<HashmapStorage<I>>,
                  components: Query<&I::Component>| {
                     let target = insertion.entity;
@@ -134,7 +134,7 @@ impl<I: IndexInfo> IndexStorage<I> for HashmapStorage<I> {
 
     fn removal_observer() -> Option<Observer> {
         Some(Observer::new(
-            |removal: On<Remove, I::Component>, mut storage: ResMut<HashmapStorage<I>>| {
+            |removal: On<Remove<I::Component>>, mut storage: ResMut<HashmapStorage<I>>| {
                 if I::REFRESH_POLICY.is_when_inserted() {
                     storage.map.remove(&removal.entity);
                 } else {

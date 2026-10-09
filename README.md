@@ -13,6 +13,7 @@ the game engine [Bevy].
 ## Compatability
 | Bevy Version | `bevy_mod_index` Version |
 |--------------|--------------------------|
+| 0.20         | 0.11.x                   |
 | 0.19         | 0.10.x                   |
 | 0.18         | 0.9.x                    |
 | 0.17         | 0.8.x                    |
